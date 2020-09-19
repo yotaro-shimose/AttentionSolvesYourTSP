@@ -2,6 +2,7 @@ import tensorflow as tf
 
 from gat.attention.multi_head_masked_attention import MultiHeadMaskedAttention
 from gat.model.preprocessor import Preprocessor
+from gat.model.residual_batch_norm import ResidualBatchNorm
 import numpy as np
 
 
@@ -17,6 +18,10 @@ class Decoder(tf.keras.models.Model):
         self.th_range = th_range
         self.preprocesser = Preprocessor(d_model, d_key, n_heads)
         self.weight_balancer = weight_balancer
+
+        self.residual_batch_norm = ResidualBatchNorm(
+            tf.keras.layers.Dense(d_model))
+        self.value_dence = tf.keras.layers.Dense(1)
 
     def build(self, input_shape):
 
@@ -45,7 +50,7 @@ class Decoder(tf.keras.models.Model):
         return tf.nn.softmax(self.th_range *
                              tf.keras.activations.tanh(tf.divide(masked_QK, divide_const)))
 
-    @tf.function
+    # @tf.function
     def call(self, inputs, training=None):
         '''
         inputs ===[H (BATCH_SIZE, n_nodes, d_model), trajectory(BATCH_SIZE, n_nodes)]
@@ -53,5 +58,6 @@ class Decoder(tf.keras.models.Model):
         '''
         inputs = self.preprocesser(inputs)
         output = self.attention(inputs)
-        return self.masked_softmax([tf.matmul(output, self.wq), tf.matmul(
-            inputs[0], self.wk), inputs[2]])
+
+        return (self.value_dence(self.residual_batch_norm(output)), self.masked_softmax([tf.matmul(output, self.wq), tf.matmul(
+            inputs[0], self.wk), inputs[2]]))
