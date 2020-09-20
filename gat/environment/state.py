@@ -81,4 +81,4 @@ class Trajectory(np.ndarray):
         return not self.__eq__(other)
 
     def __deepcopy__(self, memo):
-        return self.view(Trajectory)
+        return np.copy(self).view(Trajectory)
