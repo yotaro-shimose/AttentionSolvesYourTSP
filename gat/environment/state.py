@@ -58,3 +58,8 @@ class State:
         for k, v in self.__dict__.items():
             setattr(result, k, deepcopy(v, memo))
         return result
+
+
+class Trajectory(np.ndarray):
+    def __init__(self, ndarray):
+        self.trajectory = trajectory

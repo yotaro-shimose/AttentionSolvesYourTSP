@@ -7,6 +7,7 @@ from scipy import stats
 from gat.environment.env import Env
 from gat.model.encoder import Encoder
 from gat.model.decoder import Decoder
+from mcts.mcts import Mcts
 import pathlib
 import time
 
@@ -21,6 +22,7 @@ WEIGHT_BALANCER = 0.12
 
 # 学習アルゴリズムパラメータ
 EPOCH_NUM = 10000
+NUM_MCTS_SIMS = 300
 STEP_NUM = 10
 BATCH_SIZE = 5
 SIGNIFICANCE = 0.05
@@ -31,15 +33,15 @@ SIZE_MIN = 30
 SIZE_MAX = 31
 
 # セーブディレクトリ
-SAVE_DIRECTORY_ENCODER = str(
-    pathlib.Path.cwd().joinpath("weights").joinpath("encoder"))
-SAVE_DIRECTORY_DECODER = str(
-    pathlib.Path.cwd().joinpath("weights").joinpath("decoder"))
+# SAVE_DIRECTORY_ENCODER = str(
+#     pathlib.Path.cwd().joinpath("weights").joinpath("encoder"))
+# SAVE_DIRECTORY_DECODER = str(
+#     pathlib.Path.cwd().joinpath("weights").joinpath("decoder"))
 
-LOAD_DIRECTORY_ENCODER = str(
-    pathlib.Path.cwd().joinpath("weights").joinpath("encoder"))
-LOAD_DIRECTORY_DECODER = str(
-    pathlib.Path.cwd().joinpath("weights").joinpath("decoder"))
+# LOAD_DIRECTORY_ENCODER = str(
+#     pathlib.Path.cwd().joinpath("weights").joinpath("encoder"))
+# LOAD_DIRECTORY_DECODER = str(
+#     pathlib.Path.cwd().joinpath("weights").joinpath("decoder"))
 
 
 def synchronize(encoder, decoder, base_encoder, base_decoder):
@@ -51,8 +53,9 @@ def play_game(encoder, decoder, graph_list, graph_size, env_list, action_list, p
               isRandomChoice):
     output = encoder(tf.constant(graph_list, dtype=tf.float32))
     for _ in range(graph_size):
-        policy = tf.squeeze(decoder([output, tf.constant(
-            [env.state.trajectory for env in env_list], dtype=tf.int32)]), axis=1)
+        v, p = decoder([output, tf.constant(
+            [env.state.trajectory for env in env_list], dtype=tf.int32)])
+        policy = tf.squeeze(p, axis=1)
         if isRandomChoice:
             policy_list.append(policy)
         next_action_probability_list = policy.numpy()
@@ -66,6 +69,21 @@ def play_game(encoder, decoder, graph_list, graph_size, env_list, action_list, p
             env.step(next_action)
 
 
+def executeEpisode(env, encoder, decoder):
+    examples = []
+    state = env.state
+    mcts = Mcts(env, encoder, decoder)
+
+    while True:
+        for _ in range(NUM_MCTS_SIMS):
+            mcts.search(env)
+        examples.append([state, mcts.pi(state), None])
+        next_action = random.choice(len(mcts.pi(state)), p=mcts.pi(state))
+        state, totalcost, done = env.step(state, next_action)
+        if done:
+            return [[exam[0], exam[1], totalcost] for exam in examples]
+
+
 if __name__ == "__main__":
     # 学習用
     encoder = Encoder(D_MODEL, D_KEY, N_HEAD, DEPTH, WEIGHT_BALANCER)
@@ -76,10 +94,10 @@ if __name__ == "__main__":
     base_encoder = Encoder(D_MODEL, D_KEY, N_HEAD, DEPTH)
     base_decoder = Decoder(D_MODEL, D_KEY, N_HEAD, TH_RANGE)
 
-    if LOAD_DIRECTORY_ENCODER is not None and LOAD_DIRECTORY_DECODER is not None:
-        encoder.load_weights(LOAD_DIRECTORY_ENCODER)
-        decoder.load_weights(LOAD_DIRECTORY_DECODER)
-        synchronize(encoder, decoder, base_encoder, base_decoder)
+    # if LOAD_DIRECTORY_ENCODER is not None and LOAD_DIRECTORY_DECODER is not None:
+    #     encoder.load_weights(LOAD_DIRECTORY_ENCODER)
+    #     decoder.load_weights(LOAD_DIRECTORY_DECODER)
+    #     synchronize(encoder, decoder, base_encoder, base_decoder)
 
     for e in range(EPOCH_NUM):
         for t in range(STEP_NUM):
@@ -88,18 +106,40 @@ if __name__ == "__main__":
 
             # 今回の問題を決定する
             graph_size = random.randrange(SIZE_MIN, SIZE_MAX)
-            online_env_list = [Env(graph_size) for _ in range(BATCH_SIZE)]
-            base_env_list = deepcopy(online_env_list)
+            online_env = [Env(graph_size)]
+            base_env = deepcopy(online_env)
             graph_list = [
-                env.state.graph for env in online_env_list]
+                online_env.state.graph]
 
             action_list = [index for index in range(graph_size)]
             policy_list = []
+
+            examples = []
             with tf.GradientTape() as tape:
 
                 # 現在のNNで問題を解く
-                play_game(encoder, decoder, graph_list,
-                          graph_size, online_env_list, action_list, policy_list, True)
+                examples += executeEpisode(online_env, encoder, decoder)
+
+                # trajectoryをたどって、尤度確率を計算
+                online_env_list_state_tragectory = []
+
+                #  trajectoryデータにバッチナンバー、行動番号を振る
+                trajectory = online_env.state.trajectory
+                index_and_tragectory = [
+                    [0, index, action] for index, action in enumerate(trajectory)]
+                online_env_list_state_tragectory.append(
+                    index_and_tragectory)
+
+                select_probability = tf.gather_nd(
+                    tf.stack(policy_list, axis=1), online_env_list_state_tragectory)
+
+                prob = tf.reduce_mean(tf.multiply(tf.cast(online_env.state.total_cost(), tf.float32), tf.math.log(
+                    tf.reduce_prod(select_probability, 1))))
+
+                # 微分
+                gradient = tape.gradient(
+                    prob, encoder.trainable_variables + decoder.trainable_variables)
+
                 # コスト関数を計算する
                 online_cost_list = [env.state.total_cost()
                                     for env in online_env_list]
@@ -166,6 +206,6 @@ if __name__ == "__main__":
         if stats.ttest_rel(np.array(online_cost_list), np.array(base_cost_list)).pvalue\
                 < SIGNIFICANCE and np.mean(online_cost_list) < np.mean(base_cost_list):
             print(f"t検定通過 with 優位水準: {SIGNIFICANCE}")
-            encoder.save_weights(SAVE_DIRECTORY_ENCODER)
-            decoder.save_weights(SAVE_DIRECTORY_DECODER)
+            # encoder.save_weights(SAVE_DIRECTORY_ENCODER)
+            # decoder.save_weights(SAVE_DIRECTORY_DECODER)
             synchronize(encoder, decoder, base_encoder, base_decoder)
