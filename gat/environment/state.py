@@ -11,7 +11,8 @@ class State:
 
     def __init__(self, graph):
         self.graph = graph
-        self.trajectory = np.full(len(graph), INITIAL_NUMBER, dtype=np.int)
+        self.trajectory = np.full(
+            len(graph), INITIAL_NUMBER, dtype=np.int).view(Trajectory)
 
         G = nx.Graph()
         for index in range(len(graph)):
@@ -19,7 +20,7 @@ class State:
         self.G = G
 
     def update(self, node):
-        init_list = np.where(self.trajectory == INITIAL_NUMBER)[0]
+        init_list = np.where(self.trajectory.numpy() == INITIAL_NUMBER)[0]
         if len(init_list) != 0:
             self.trajectory[init_list[0]] = node
         return self.check_last_action(init_list)
@@ -61,5 +62,27 @@ class State:
 
 
 class Trajectory(np.ndarray):
-    def __init__(self, ndarray):
-        self.trajectory = trajectory
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def mask(self):
+        return np.array([-np.inf if i in self.numpy() else 0.0
+                         for i in range(len(self))], dtype=np.float)
+
+    def __str__(self):
+        x_arrstr = np.char.mod('%f', self)
+        # combine to a string
+        return "".join(x_arrstr)
+
+    def __eq__(self, other):
+        return (super().__eq__(other)).all()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __deepcopy__(self, memo):
+        return np.copy(self).view(Trajectory)
+
+    def numpy(self):
+        return np.array(self.tolist())

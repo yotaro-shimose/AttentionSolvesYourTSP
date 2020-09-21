@@ -50,7 +50,7 @@ class Decoder(tf.keras.models.Model):
         return tf.nn.softmax(self.th_range *
                              tf.keras.activations.tanh(tf.divide(masked_QK, divide_const)))
 
-    # @tf.function
+    @tf.function
     def call(self, inputs, training=None):
         '''
         inputs ===[H (BATCH_SIZE, n_nodes, d_model), trajectory(BATCH_SIZE, n_nodes)]

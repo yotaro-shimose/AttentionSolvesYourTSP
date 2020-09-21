@@ -1,7 +1,9 @@
 import tensorflow as tf
 import numpy as np
 from math import sqrt
+from copy import deepcopy
 
+import time
 AVERAGE_CONST = 0
 STANDARD_DEVIDATION = 0.000001
 C_PUCT = 0.001
@@ -20,40 +22,51 @@ class MCTS:
 
     def search(self, env):
 
-        state = env.state
+        trajectory = deepcopy(env.state.trajectory)
+
+        start = time.perf_counter()
 
         # 経験判定
-        if state not in self.visited:
+        if trajectory not in self.visited:
+
             # Qテーブルの初期化
-            self.Q[state.trajectory] = np.zeros(len(state.trajectory))
+            self.Q[trajectory] = np.zeros(len(trajectory))
 
             # Nの初期化
-            self.N[state.trajectory] = np.zeros(len(state.trajectory))
+            self.N[trajectory] = np.zeros(len(trajectory))
 
-            self.visited.append(state)
-            v, self.P[state.trajectory] = self.decoder([self.input, tf.constant(
-                [env.state.trajectory], dtype=tf.int32)])
+            self.visited.append(trajectory)
+
+            v, self.P[trajectory] = self.decoder([self.input, tf.constant(
+                [trajectory], dtype=tf.int32)])
+            end = time.perf_counter()
+            print(f"消費時間：{end-start}")
+
             return v
 
         # 次の選択を判断
-        p_array = self.P[state].numpy()
+        p_array = np.squeeze(self.P[trajectory].numpy())
         random = np.random.normal(
             AVERAGE_CONST, STANDARD_DEVIDATION, len(p_array))
-        u_array = self.Q[state.trajectory] + C_PUCT * p_array * \
-            sqrt(sum(self.N[state]))/(1+self.N[state])
-        next_action = np.argmax((u_array+random)*env.mask())
+        u_array = self.Q[trajectory] + C_PUCT * p_array * \
+            sqrt(sum(self.N[trajectory]))/(1+self.N[trajectory])
+        next_action = np.argmax((u_array+random)+trajectory.mask())
 
         next_state, totalcost, done = env.step(next_action)
 
         # 終了判定
         if done:
+            self.Q[trajectory][next_action] = (
+                self.N[trajectory][next_action] * self.Q[trajectory][next_action] + totalcost) / (self.N[trajectory][next_action] + 1)
+            self.N[trajectory][next_action] += 1
             return totalcost
 
-        v = self.search(next_state, env)
+        v = self.search(env)
 
-        self.Q[state.trajectory][next_action] = (
-            self.N[state.trajectory][next_action] * self.Q[state.trajectory][next_action] + v) / (self.N[state.trajectory][next_action] + 1)
-        self.N[state.trajectory][next_action] += 1
+        self.Q[trajectory][next_action] = (
+            self.N[trajectory][next_action] * self.Q[trajectory][next_action] + v) / (self.N[trajectory][next_action] + 1)
+        self.N[trajectory][next_action] += 1
+
         return v
 
     def pi(self, state):

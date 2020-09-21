@@ -43,6 +43,9 @@ SIZE_MAX = 31
 # LOAD_DIRECTORY_DECODER = str(
 #     pathlib.Path.cwd().joinpath("weights").joinpath("decoder"))
 
+LOAD_DIRECTORY_ENCODER = None
+LOAD_DIRECTORY_DECODER = None
+
 
 def synchronize(encoder, decoder, base_encoder, base_decoder):
     base_encoder.set_weights(encoder.get_weights())

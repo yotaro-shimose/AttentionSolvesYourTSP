@@ -28,7 +28,7 @@ class Encoder(tf.keras.models.Model):
                                  initializer=initializer,
                                  trainable=True)
 
-    # @tf.function
+    @tf.function
     def call(self, x, training=None):
         '''
         input === (BATCH_SIZE, n_nodes, d_feature(2))
