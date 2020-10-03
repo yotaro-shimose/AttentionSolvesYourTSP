@@ -1,9 +1,0 @@
-{
-    "python.pythonPath": "/home/masuda/anaconda3/envs/dl/bin/python",
-    "python.testing.pytestArgs": [
-        "."
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.nosetestsEnabled": false,
-    "python.testing.pytestEnabled": true
-}

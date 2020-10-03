@@ -45,9 +45,7 @@ class Decoder(tf.keras.models.Model):
         shape = tf.shape(QK)
         QK = tf.reshape(QK, (shape[1], shape[0], shape[-1]))
 
-        masked_QK = tf.reshape(tf.where(mask, tf.float32.min, QK), shape)
-
-        return masked_QK
+        return QK
 
     @tf.function
     def call(self, inputs, training=None):

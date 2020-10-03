@@ -31,7 +31,7 @@ class MCTS:
                 [trajectory], dtype=tf.int32)]).numpy().squeeze()
             self.visited.append(trajectory)
         # 決められた回数ゲームを行う
-        for k in range(search_num):
+        for _ in range(search_num):
             self.play_game(env)
 
         return self.Q[trajectory]
@@ -69,11 +69,8 @@ class MCTS:
         if done:
             total_reward = reward
         else:
-            total_reward = self.gumma * self.play_game(env)
+            total_reward = reward + self.gumma * self.play_game(env)
         self.Q[trajectory][next_action] = (
             (self.N[trajectory][next_action] - 1) * self.Q[trajectory][next_action] + total_reward)/self.N[trajectory][next_action]
 
-        if done:
-            return reward
-
-        return reward + total_reward
+        return total_reward
