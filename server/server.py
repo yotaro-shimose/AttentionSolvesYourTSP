@@ -24,31 +24,46 @@ class Server(Process):
         while True:
             cmd, *args = self.queue.get()
             if cmd == "add":
-                self.add(*args)
+                self._add(*args)
             elif cmd == "sample":
-                self.server_pipe.send(self.sample(*args))
+                self.server_pipe.send(self._sample(*args))
             elif cmd == "upload":
-                self.upload(*args)
+                self._upload(*args)
             elif cmd == "download":
-                self.server_pipe.send(self.download())
+                self.server_pipe.send(self._download())
             else:
                 raise ValueError(
                     f"Parameter Server got an unexpected command {cmd}")
 
-    def download(self):
+    def _download(self):
         return self.parameter
 
-    def upload(self, parameter):
+    def _upload(self, parameter):
         self.parameter = parameter
 
-    def add(self, data):
+    def _add(self, data):
         for d in data:
             label_array = ["obs", "act", "rew", "next_obs", "done"]
             data_dict = {key: value for key, value in zip(label_array, d)}
             self.buffer.add(**data_dict)
 
-    def sample(self, size):
+    def _sample(self, size):
         return self.buffer.sample(size)
 
-    def get_access(self):
-        return self.queue, self.client_pipe
+    def download(self):
+        cmd = "download"
+        self.queue.put((cmd, None))
+        return self.client_pipe.recv()
+
+    def upload(self, parameter):
+        cmd = "upload"
+        self.queue.put((cmd, parameter))
+
+    def add(self, data):
+        cmd = "add"
+        self.queue.put((cmd, data))
+
+    def sample(self, size):
+        cmd = "sample"
+        self.queue.put((cmd, size))
+        return self.client_pipe.recv()

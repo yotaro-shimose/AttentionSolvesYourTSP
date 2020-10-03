@@ -15,15 +15,11 @@ def create_dummy(size):
 def test_server():
     server = Server(
         size=200000, observation_shape=(14, 2))
-    queue, pipe = server.get_access()
     server.start()
     size = 100
     data = create_dummy(size)
-    cmd = "add"
-    queue.put((cmd, data))
-    cmd = "sample"
-    queue.put((cmd, size))
-    sample = pipe.recv()
+    server.add(data)
+    sample = server.sample(size)
     # obs
     assert sample["obs"].shape == (size, 14, 2)
     # act
@@ -35,16 +31,12 @@ def test_server():
     # done
     assert sample["done"].shape == (size, 1)
 
-    cmd = "download"
-    queue.put((cmd, None))
-    weight = pipe.recv()
+    weight = server.download()
     assert weight is None
+
     weight_input = [np.random.random((5, 5)) for _ in range(10)]
-    cmd = "upload"
-    queue.put(("upload", weight_input))
-    cmd = "download"
-    queue.put((cmd, None))
-    weight = pipe.recv()
+    server.upload(weight_input)
+    weight = server.download()
     for w1, w2 in zip(weight, weight_input):
         assert np.sum(((w1 == w2).astype(np.int) - 1) * (-1)) == 0
 
