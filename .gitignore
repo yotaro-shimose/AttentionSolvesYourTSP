@@ -1,2 +1,8 @@
+# pycache
 __pycache__
+
+# temp file
 temp*.py
+
+# vscode
+.vscode/*
