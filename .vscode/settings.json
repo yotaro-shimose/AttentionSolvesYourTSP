@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "C:\\Users\\ma-nu\\Anaconda3\\python.exe",
+    "python.pythonPath": "/home/masuda/anaconda3/envs/dl/bin/python",
     "python.testing.pytestArgs": [
         "."
     ],

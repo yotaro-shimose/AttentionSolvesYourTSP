@@ -47,8 +47,7 @@ class Decoder(tf.keras.models.Model):
 
         masked_QK = tf.reshape(tf.where(mask, tf.float32.min, QK), shape)
 
-        return tf.nn.softmax(self.th_range *
-                             tf.keras.activations.tanh(tf.divide(masked_QK, divide_const)))
+        return masked_QK
 
     @tf.function
     def call(self, inputs, training=None):
@@ -59,5 +58,5 @@ class Decoder(tf.keras.models.Model):
         inputs = self.preprocesser(inputs)
         output = self.attention(inputs)
 
-        return (self.value_dence(self.residual_batch_norm(output)), self.masked_softmax([tf.matmul(output, self.wq), tf.matmul(
-            inputs[0], self.wk), inputs[2]]))
+        return self.masked_softmax([tf.matmul(output, self.wq), tf.matmul(
+            inputs[0], self.wk), inputs[2]])
