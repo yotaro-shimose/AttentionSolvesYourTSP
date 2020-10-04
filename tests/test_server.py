@@ -24,6 +24,10 @@ def test_server():
         size=200000, env_dict=env_dict)
     server.start()
     size = 100
+
+    # try to sample from buffer
+    assert server.sample(100) is None
+
     data = create_dummy(size)
     server.add(data)
     sample = server.sample(size)

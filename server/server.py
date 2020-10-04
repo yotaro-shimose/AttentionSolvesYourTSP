@@ -3,7 +3,7 @@ from cpprb import ReplayBuffer as CPPRB
 
 
 class Server(Process):
-    def __init__(self, size, env_dict):
+    def __init__(self, size, env_dict, min_storage=100):
         super().__init__()
 
         self.queue = Queue()
@@ -11,7 +11,10 @@ class Server(Process):
         self.env_dict = env_dict
         self.buffer = CPPRB(size, env_dict=env_dict)
         self.parameter = None
-        self.lock = Lock
+        self.min_storage = min_storage
+
+        # サーバーロックオブジェクト
+        self.lock = Lock()
 
     def run(self):
         while True:
@@ -41,13 +44,19 @@ class Server(Process):
             self.buffer.add(**data_dict)
 
     def _sample(self, size):
-        return self.buffer.sample(size)
+        if self.buffer.get_stored_size() < self.min_storage:
+            print(
+                f"stored sample {self.buffer.get_stored_size()} is smaller than mininum storage\
+                     size {self.min_storage}. Returnning None")
+            return None
+        else:
+            return self.buffer.sample(size)
 
     def download(self):
         cmd = "download"
         self.lock.acquire()
         self.queue.put((cmd, None))
-        weights = self.client.pipe.recv()
+        weights = self.client_pipe.recv()
         self.lock.release()
         return weights
 
@@ -63,6 +72,6 @@ class Server(Process):
         cmd = "sample"
         self.lock.acquire()
         self.queue.put((cmd, size))
-        sample = self.client.pipe.recv()
+        sample = self.client_pipe.recv()
         self.lock.release()
         return sample
