@@ -1,23 +1,22 @@
 import tensorflow as tf
+import time
 
 
 class Learner:
     def __init__(
         self,
-        encoder,
-        decoder,
-        encoder_target,
-        decoder_target,
+        encoder_builder,
+        decoder_builder,
         server,
         batch_size=512,
         gamma=0.999,
         synchronize_freq=10,
         upload_freq=50
     ):
-        self.encoder = encoder
-        self.decoder = decoder
-        self.encoder_target = encoder_target
-        self.decoder_target = decoder_target
+        self.encoder = encoder_builder()
+        self.decoder = decoder_builder()
+        self.encoder_target = encoder_builder()
+        self.decoder_target = decoder_builder()
         self.server = server
         self.batch_size = batch_size
         self.gamma = gamma
@@ -27,22 +26,26 @@ class Learner:
     def start(self):
         self.step = 0
         while True:
-            self.step += 1
             metrics = self.train()
-            # lossのログ
-            # TODO implement tensorboard
-            if self.step % 100:
-                self.log_metrics(metrics)
+            if metrics:
+                self.step += 1
+                # lossのログ
+                # TODO implement tensorboard
+                if self.step % 100:
+                    self.log_metrics(metrics)
 
-            if self.step % self.synchronize_freq == 0:
-                self.synchronize()
-            if self.step % self.upload_freq == 0:
-                self.upload()
+                if self.step % self.synchronize_freq == 0:
+                    self.synchronize()
+                if self.step % self.upload_freq == 0:
+                    self.upload()
 
     def train(self):
 
         # Serverからサンプル
         sample = self.server.sample(self.batch_size)
+        if sample is None:
+            time.sleep(1)
+            return
         graph = sample["graph"]
         traj = sample["traj"]
         action = sample["act"]

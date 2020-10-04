@@ -7,7 +7,7 @@ import numpy as np
 
 
 class Decoder(tf.keras.models.Model):
-    def __init__(self, d_model, d_key, n_heads, th_range, weight_balancer=0.01):
+    def __init__(self, d_model, d_key, n_heads, weight_balancer=0.01):
         super().__init__()
         if (d_model % n_heads) != 0:
             raise Exception('割り切れる数字を入れてね！！')
@@ -15,7 +15,6 @@ class Decoder(tf.keras.models.Model):
         self.d_key = d_key
         self.attention = MultiHeadMaskedAttention(
             d_model, d_key, n_heads, weight_balancer)
-        self.th_range = th_range
         self.preprocesser = Preprocessor(d_model, d_key, n_heads)
         self.weight_balancer = weight_balancer
 
