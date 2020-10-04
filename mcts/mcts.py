@@ -1,9 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from math import sqrt
 from copy import deepcopy
 
-import time
 AVERAGE_CONST = 0
 STANDARD_DEVIDATION = 0.000001
 C_PUCT = 0.001

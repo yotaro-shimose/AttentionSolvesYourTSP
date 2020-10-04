@@ -13,8 +13,15 @@ def create_dummy(size):
 
 
 def test_server():
+    env_dict = {
+        "obs": {"shape": (14, 2)},
+        "act": {"dtype": np.int},
+        "rew": {"dtype": np.float},
+        "next_obs": {"shape": (14, 2)},
+        "done": {"dtype": np.bool}
+    }
     server = Server(
-        size=200000, observation_shape=(14, 2))
+        size=200000, env_dict=env_dict)
     server.start()
     size = 100
     data = create_dummy(size)

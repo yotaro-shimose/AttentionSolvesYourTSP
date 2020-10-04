@@ -6,8 +6,8 @@ from gat.environment.state import State
 
 
 class Env:
-    def __init__(self, graph_size):
-        self.state = self.__create_state(graph_size)
+    def __init__(self):
+        pass
 
     def __create_state(self, graph_size):
         graph = np.random.uniform(size=(graph_size, 2))
