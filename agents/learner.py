@@ -12,7 +12,12 @@ class Learner:
         batch_size=512,
         gamma=0.999,
         synchronize_freq=10,
-        upload_freq=50
+        upload_freq=50,
+        beta_q_first=1,
+        beta_q_last=0.1,
+        beta_a_first=0,
+        beta_a_last=0.045,
+        annealing_step=int(1e5)
     ):
         self.encoder = encoder
         self.decoder = decoder
@@ -24,6 +29,15 @@ class Learner:
         self.synchronize_freq = synchronize_freq
         self.upload_freq = upload_freq
 
+        # annealing configuration
+        self.beta_q_first = beta_q_first
+        self.beta_q_last = beta_q_last
+        self.beta_a_first = beta_a_first
+        self.beta_a_last = beta_a_last
+
+        self.beta_q = self.beta_q_first
+        self.beta_a = self.beta_a_first
+
     def start(self):
         self.step = 0
         while True:
@@ -33,7 +47,6 @@ class Learner:
             # TODO implement tensorboard
             if self.step % 100:
                 self.log_metrics(metrics)
-
             if self.step % self.synchronize_freq == 0:
                 self.synchronize()
             if self.step % self.upload_freq == 0:
