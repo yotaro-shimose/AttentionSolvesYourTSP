@@ -1,4 +1,4 @@
-from multiprocessing import Process, Queue, Pipe
+from multiprocessing import Process, Queue, Pipe, Lock
 from cpprb import ReplayBuffer as CPPRB
 
 
@@ -11,6 +11,7 @@ class Server(Process):
         self.env_dict = env_dict
         self.buffer = CPPRB(size, env_dict=env_dict)
         self.parameter = None
+        self.lock = Lock
 
     def run(self):
         while True:
@@ -44,8 +45,11 @@ class Server(Process):
 
     def download(self):
         cmd = "download"
+        self.lock.acquire()
         self.queue.put((cmd, None))
-        return self.client_pipe.recv()
+        weights = self.client.pipe.recv()
+        self.lock.release()
+        return weights
 
     def upload(self, parameter):
         cmd = "upload"
@@ -57,5 +61,8 @@ class Server(Process):
 
     def sample(self, size):
         cmd = "sample"
+        self.lock.acquire()
         self.queue.put((cmd, size))
-        return self.client_pipe.recv()
+        sample = self.client.pipe.recv()
+        self.lock.release()
+        return sample
