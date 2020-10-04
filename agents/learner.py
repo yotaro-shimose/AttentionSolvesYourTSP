@@ -11,6 +11,7 @@ class Learner:
         server,
         batch_size=512,
         gamma=0.999,
+        learning_rate=1e-3,
         synchronize_freq=10,
         upload_freq=50,
         beta_q_first=1,
@@ -26,14 +27,17 @@ class Learner:
         self.server = server
         self.batch_size = batch_size
         self.gamma = gamma
+        learning_rate = learning_rate
         self.synchronize_freq = synchronize_freq
         self.upload_freq = upload_freq
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
         # annealing configuration
         self.beta_q_first = beta_q_first
         self.beta_q_last = beta_q_last
         self.beta_a_first = beta_a_first
         self.beta_a_last = beta_a_last
+        self.annealing_step = annealing_step
 
         self.beta_q = self.beta_q_first
         self.beta_a = self.beta_a_first
@@ -43,6 +47,7 @@ class Learner:
         while True:
             self.step += 1
             metrics = self.train()
+            self.anneal()
             # lossのログ
             # TODO implement tensorboard
             if self.step % 100:
@@ -134,6 +139,18 @@ class Learner:
 
     def trainable_variables(self):
         return self.encoder.trainable_variables + self.decoder.trainable_variables
+
+    def anneal(self):
+        q_step = (self.beta_q_last - self.beta_q_first) / self.annealing_step
+
+        new_beta_q = self.beta_q + q_step
+        a_step = (self.beta_a_last - self.beta_a_first) / self.annealing_step
+        new_beta_a = self.beta_a + a_step
+
+        if new_beta_q > self.beta_q_last:
+            self.beta_q = new_beta_q
+        if new_beta_a < self.beta_a_last:
+            self.beta_a = new_beta_a
 
     def synchronize(self):
         self.encoder_target.set_weights(self.encoder.get_weights())
