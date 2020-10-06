@@ -10,26 +10,36 @@ class Learner:
         server,
         batch_size=512,
         gamma=0.999,
-        learning_rate=1e-3,
+        learning_rate=1e-10,
         synchronize_freq=10,
         upload_freq=50,
         beta_q_first=1,
         beta_q_last=0.1,
         beta_a_first=0,
         beta_a_last=0.045,
-        annealing_step=int(1e5)
+        annealing_step=int(1e5),
+        d_model=128,
+        d_key=16,
+        n_head=8,
+        depth=2,
+        weight_balancer=0.12,
     ):
-        self.encoder = encoder_builder()
-        self.decoder = decoder_builder()
-        self.encoder_target = encoder_builder()
-        self.decoder_target = decoder_builder()
+        self.encoder_builder = encoder_builder
+        self.decoder_builder = decoder_builder
         self.server = server
         self.batch_size = batch_size
         self.gamma = gamma
         learning_rate = learning_rate
         self.synchronize_freq = synchronize_freq
         self.upload_freq = upload_freq
+
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        self.huber = tf.keras.losses.Huber()
+        self.d_model = d_model
+        self.d_key = d_key
+        self.n_head = n_head
+        self.depth = depth
+        self.weight_balancer = weight_balancer
 
         # annealing configuration
         self.beta_q_first = beta_q_first
@@ -42,6 +52,14 @@ class Learner:
         self.beta_a = self.beta_a_first
 
     def start(self):
+        self.encoder = self.encoder_builder(self.d_model, self.d_key,
+                                            self.n_head, self.depth, self.weight_balancer)
+        self.decoder = self.decoder_builder(self.d_model, self.d_key, self.n_head,
+                                            self.weight_balancer)
+        self.encoder_target = self.encoder_builder(self.d_model, self.d_key,
+                                                   self.n_head, self.depth, self.weight_balancer)
+        self.decoder_target = self.decoder_builder(self.d_model, self.d_key, self.n_head,
+                                                   self.weight_balancer)
         self.step = 0
         while True:
             metrics = self.train()
@@ -104,23 +122,25 @@ class Learner:
     ):
         # Qターゲットを計算
         next_action = tf.argmax(self.network(
-            [next_graph, next_trajectory]), axis=1)
+            [next_graph, next_trajectory]), axis=1, output_type=tf.int32)
         indice = tf.stack(
             [tf.range(next_action.shape[0]), next_action], axis=1)
         next_Q = tf.reshape(tf.gather_nd(self.network_target(
-            [next_graph, next_trajectory])), (-1, 1))
+            [next_graph, next_trajectory]), indice), (-1, 1))
         target = reward + self.gamma * next_Q * \
-            ((tf.cast(done, tf.int32) - 1) * (-1))
+            ((tf.cast(done, tf.float32) - 1) * (-1))
 
         # TD Loss と Amortized Loss を計算
-        indice = tf.stack([tf.range(action.shape[0]), action], axis=1)
+        indice = tf.stack([tf.range(action.shape[0]),
+                           tf.squeeze(action, axis=1)], axis=1)
         mcts_policy = tf.nn.softmax(Q_mcts)
         with tf.GradientTape() as tape:
-            Q = tf.gather_nd(self.network([graph, trajectory]), indice)
-            td_loss = tf.keras.losses.mse(Q, target)
+            Q_list = self.network([graph, trajectory])
+            Q = tf.gather_nd(Q_list, indice)
+            td_loss = self.huber(Q, target)
 
-            amortized_loss = tf.nn.softmax_cross_entropy_with_logits(
-                mcts_policy, Q)
+            amortized_loss = tf.math.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+                mcts_policy, Q_list))
             total_loss = self.beta_q * td_loss + self.beta_a * amortized_loss
             gradient = tape.gradient(total_loss, self.trainable_variables())
             self.optimizer.apply_gradients(

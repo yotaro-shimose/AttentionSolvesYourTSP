@@ -30,8 +30,8 @@ class Actor():
         d_key=16,
         n_head=8,
         depth=2,
-        learning_rate=9.0e-5,
         weight_balancer=0.12,
+        learning_rate=9.0e-5,
         search_num=10
     ):
         self.env = env_builder()
@@ -46,16 +46,19 @@ class Actor():
         self.d_key = d_key
         self.n_head = n_head
         self.depth = depth
-        self.learning_rate = learning_rate
         self.weight_balancer = weight_balancer
+        self.learning_rate = learning_rate
         self.search_num = search_num
 
-        self.encoder = encoder_builder(self.d_model, self.d_key,
-                                       self.n_head, self.depth, self.weight_balancer)
-        self.decoder = decoder_builder(self.d_model, self.d_key, self.n_head,
-                                       self.weight_balancer)
+        self.encoder_builder = encoder_builder
+        self.decoder_builder = decoder_builder
 
     def start(self):
+
+        self.encoder = self.encoder_builder(self.d_model, self.d_key,
+                                            self.n_head, self.depth, self.weight_balancer)
+        self.decoder = self.decoder_builder(self.d_model, self.d_key, self.n_head,
+                                            self.weight_balancer)
 
         def eps_greedy(Q, eps, env):
             rand = np.random.rand()
@@ -79,13 +82,13 @@ class Actor():
 
             mcts = MCTS(self.env, self.encoder, self.decoder, self.gamma)
 
-            if download_step == self.download_interval:
-                download_step = 0
-                weight = self.server.download()
-                if weight:
-                    encoder_weight, decoder_weight = weight
-                    self.encoder.set_weights(encoder_weight)
-                    self.decoder.set_weights(decoder_weight)
+            # if download_step == self.download_interval:
+            #     download_step = 0
+            #     weight = self.server.download()
+            #     if weight:
+            #         encoder_weight, decoder_weight = weight
+            #         self.encoder.set_weights(encoder_weight)
+            #         self.decoder.set_weights(decoder_weight)
 
             for _ in range(graph_size):
 
@@ -104,11 +107,11 @@ class Actor():
                 # Envから次の行動を選択したことによって次のS,r,doneを受け取る
                 before_trajectory = deepcopy(self.env.state.trajectory)
                 next_state, reward, done = self.env.step(next_action)
+                after_trajectory = deepcopy(next_state.trajectory)
 
                 # listに追加する
                 return_list.append((self.env.state.graph, before_trajectory,
-                                    next_action, self.env.state.graph, self.env.state.trajectory, reward, Q))
-                print(len(return_list))
+                                    next_action, reward, next_state.graph, after_trajectory, done, Q))
                 upload_step += 1
 
             download_step += 1

@@ -16,7 +16,7 @@ N_HEAD = 8
 DEPTH = 2
 TH_RANGE = 10
 LEARNING_RATE = 9.0e-5
-WEIGHT_BALANCER = 0.12
+WEIGHT_BALANCER = 0.001
 
 # 学習アルゴリズムパラメータ
 EPOCH_NUM = 10000
@@ -27,7 +27,7 @@ SIGNIFICANCE = 0.05
 EVALUATION_NUM = 15
 GAMMA = 0.99999
 SEARCH_NUM = 10
-ACTOR_UPLOAD_INTERVAL = 1000
+ACTOR_UPLOAD_INTERVAL = 10
 DOWNLOAD_INTERVAL = 10
 BUFFER_SIZE = 20000
 
@@ -53,12 +53,12 @@ def decoder_builder(d_model=D_MODEL, d_key=D_KEY, n_heads=N_HEAD, weight_balance
 
 if __name__ == "__main__":
     env_dict = {
-        "graph": {"shape": (14, 2)},
-        "traj": {"shape": (14, )},
-        "act": {"dtype": np.int},
-        "rew": {"dtype": np.float},
-        "next_graph": {"shape": (14, 2)},
-        "next_traj": {"shape": (14, )},
+        "graph": {"shape": (14, 2), "dtype": np.float32},
+        "traj": {"shape": (14, ), "dtype": np.int32},
+        "act": {"dtype": np.int32},
+        "rew": {"dtype": np.float32},
+        "next_graph": {"shape": (14, 2), "dtype": np.float32},
+        "next_traj": {"shape": (14, ), "dtype": np.int32},
         "done": {"dtype": np.bool},
         "Q": {"shape": (14, )}
     }
@@ -66,19 +66,20 @@ if __name__ == "__main__":
         size=BUFFER_SIZE, env_dict=env_dict)
     server.start()
 
-    # learner = Learner(
-    #     encoder_builder,
-    #     decoder_builder,
-    #     server,
-    #     BATCH_SIZE,
-    #     GAMMA,
-    #     SYNCHRONIZE_FREQ,
-    #     LEARNER_UPLOAD_INTERVAL
-    # )
-    # learner_process = Process(target=learner.start)
-    # learner_process.start()
+    learner = Learner(
+        encoder_builder,
+        decoder_builder,
+        server,
+        BATCH_SIZE,
+        GAMMA,
+        SYNCHRONIZE_FREQ,
+        LEARNER_UPLOAD_INTERVAL
+    )
+    learner_process = Process(target=learner.start)
+    learner_process.start()
+
     actor_process_list = []
-    for _ in range(5):
+    for _ in range(2):
         actor = Actor(
             env_builder,
             encoder_builder,
@@ -104,4 +105,4 @@ if __name__ == "__main__":
 
     for actor_process in actor_process_list:
         actor_process.join()
-    # learner_process.join()
+    learner_process.join()

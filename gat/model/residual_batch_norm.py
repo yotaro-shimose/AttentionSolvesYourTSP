@@ -7,6 +7,6 @@ class ResidualBatchNorm(tf.keras.models.Model):
         self.layer = layer
         self.batch_normalization = tf.keras.layers.BatchNormalization()
 
-    def call(self, x, training=None):
+    def call(self, x):
         x1 = tf.add(self.layer(x), x)
         return tf.add(self.batch_normalization(x1), x1)

@@ -93,5 +93,5 @@ class Preprocessor(tf.keras.models.Model):
         # calculate mask
         mask = self.create_mask(trajectory)
 
-        # calculate probability over non-visited nodes
+        # return created inputs for decoder.
         return [H, h_c, mask]
