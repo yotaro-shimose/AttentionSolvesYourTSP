@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from gat.attention.multi_head_masked_attention import MultiHeadMaskedAttention
 from gat.model.preprocessor import Preprocessor
-from gat.model.residual_batch_norm import ResidualBatchNorm
+from gat.model.residual import ResidualLayerNorm
 import numpy as np
 
 
@@ -10,7 +10,7 @@ class Decoder(tf.keras.models.Model):
     def __init__(self, d_model, d_key, n_heads, weight_balancer=0.01):
         super().__init__()
         if (d_model % n_heads) != 0:
-            raise Exception('割り切れる数字を入れてね！！')
+            raise ValueError('割り切れる数字を入れてね！！')
         self.d_model = d_model
         self.d_key = d_key
         self.attention = MultiHeadMaskedAttention(
@@ -18,9 +18,8 @@ class Decoder(tf.keras.models.Model):
         self.preprocesser = Preprocessor(d_model, d_key, n_heads)
         self.weight_balancer = weight_balancer
 
-        self.residual_batch_norm = ResidualBatchNorm(
+        self.residual_layer_norm = ResidualLayerNorm(
             tf.keras.layers.Dense(d_model))
-        self.value_dence = tf.keras.layers.Dense(1)
 
     def build(self, input_shape):
 
@@ -37,15 +36,14 @@ class Decoder(tf.keras.models.Model):
                                   initializer=initializer,
                                   trainable=True)
 
-    def masked_softmax(self, inputs):
-        Q, K, mask = inputs
-        divide_const = tf.sqrt(tf.cast(tf.constant(K.shape[-1]), tf.float32))
+    def calc_Q(self, Q, K):
+        # calculate Q values based on queries and keys.
         QK = tf.matmul(Q, K, transpose_b=True)
         QK = tf.squeeze(QK, axis=1)
         return QK
 
     @tf.function
-    def call(self, inputs, training=None):
+    def call(self, inputs):
         '''
         inputs ===[H (BATCH_SIZE, n_nodes, d_model), trajectory(BATCH_SIZE, n_nodes)]
         outputs === (BATCH_SIZE, n_nodes)
@@ -53,5 +51,5 @@ class Decoder(tf.keras.models.Model):
         inputs = self.preprocesser(inputs)
         output = self.attention(inputs)
 
-        return self.masked_softmax([tf.matmul(output, self.wq), tf.matmul(
-            inputs[0], self.wk), inputs[2]])
+        return self.calc_Q(tf.matmul(output, self.wq), tf.matmul(
+            inputs[0], self.wk))

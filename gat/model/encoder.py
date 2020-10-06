@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from gat.model.residual_batch_norm import ResidualBatchNorm
+from gat.model.residual import ResidualLayerNorm
 from gat.attention.multi_head_self_attention import MultiHeadSelfAttention
 import numpy as np
 
@@ -10,10 +10,11 @@ class Encoder(tf.keras.models.Model):
         super().__init__()
         self.weight_balancer = weight_balancer
         self.d_model = d_model
-        self.attention_block_list = [ResidualBatchNorm(
+        self.attention_block_list = [ResidualLayerNorm(
             MultiHeadSelfAttention(d_model, d_key, n_heads, weight_balancer)) for _ in range(n)]
-        self.dence_block_list = [ResidualBatchNorm(
+        self.dence_block_list = [ResidualLayerNorm(
             tf.keras.layers.Dense(d_model, activation='relu')) for _ in range(n)]
+        self.final_layer_norm = tf.keras.layers.LayerNormalization()
         self.n = n
 
     def build(self, input_shape):
@@ -29,7 +30,7 @@ class Encoder(tf.keras.models.Model):
                                  trainable=True)
 
     @tf.function
-    def call(self, x, training=None):
+    def call(self, x):
         '''
         input === (BATCH_SIZE, n_nodes, d_feature(2))
         output === (BATCH_SIZE, n_nodes, d_model)
@@ -38,4 +39,5 @@ class Encoder(tf.keras.models.Model):
         for attention_block, dence_block in zip(self.attention_block_list, self.dence_block_list):
             x = tf.add(attention_block(x), x)
             x = tf.add(dence_block(x), x)
+        x = self.final_layer_norm(x)
         return x

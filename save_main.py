@@ -1,27 +1,25 @@
 import numpy as np
-from multiprocessing import Process, Queue, Pipe
+from multiprocessing import Process
 from agents.actor import Actor
 from agents.learner import Learner
 
 from gat.environment.env import Env
 from gat.model.encoder import Encoder
 from gat.model.decoder import Decoder
-from mcts.mcts import MCTS
 from server.server import Server
 
 # NNパラメータ
 D_MODEL = 128
 D_KEY = 16
 N_HEAD = 8
-DEPTH = 2
+DEPTH = 4
 TH_RANGE = 10
-LEARNING_RATE = 9.0e-5
-WEIGHT_BALANCER = 0.001
+LEARNING_RATE = 1.0e-3
+WEIGHT_BALANCER = 1
 
 # 学習アルゴリズムパラメータ
 EPOCH_NUM = 10000
 NUM_MCTS_SIMS = 300
-STEP_NUM = 10
 BATCH_SIZE = 5
 SIGNIFICANCE = 0.05
 EVALUATION_NUM = 15
@@ -31,7 +29,7 @@ ACTOR_UPLOAD_INTERVAL = 10
 DOWNLOAD_INTERVAL = 10
 BUFFER_SIZE = 20000
 
-SYNCHRONIZE_FREQ = 10
+SYNCHRONIZE_INTERVAL = 10
 LEARNER_UPLOAD_INTERVAL = 50
 
 # 環境用パラメータ
@@ -43,11 +41,22 @@ def env_builder():
     return Env()
 
 
-def encoder_builder(d_model=D_MODEL, d_key=D_KEY, n_heads=N_HEAD, depth=DEPTH, weight_balancer=WEIGHT_BALANCER):
+def encoder_builder(
+    d_model=D_MODEL,
+    d_key=D_KEY,
+    n_heads=N_HEAD,
+    depth=DEPTH,
+    weight_balancer=WEIGHT_BALANCER
+):
     return Encoder(d_model, d_key, n_heads, depth, weight_balancer)
 
 
-def decoder_builder(d_model=D_MODEL, d_key=D_KEY, n_heads=N_HEAD, weight_balancer=WEIGHT_BALANCER):
+def decoder_builder(
+    d_model=D_MODEL,
+    d_key=D_KEY,
+    n_heads=N_HEAD,
+    weight_balancer=WEIGHT_BALANCER
+):
     return Decoder(d_model, d_key, n_heads, weight_balancer)
 
 
@@ -67,13 +76,14 @@ if __name__ == "__main__":
     server.start()
 
     learner = Learner(
-        encoder_builder,
-        decoder_builder,
-        server,
-        BATCH_SIZE,
-        GAMMA,
-        SYNCHRONIZE_FREQ,
-        LEARNER_UPLOAD_INTERVAL
+        encoder_builder=encoder_builder,
+        decoder_builder=decoder_builder,
+        server=server,
+        batch_size=BATCH_SIZE,
+        gamma=GAMMA,
+        learning_rate=LEARNING_RATE,
+        synchronize_interval=SYNCHRONIZE_INTERVAL,
+        upload_interval=LEARNER_UPLOAD_INTERVAL,
     )
     learner_process = Process(target=learner.start)
     learner_process.start()
@@ -81,23 +91,16 @@ if __name__ == "__main__":
     actor_process_list = []
     for _ in range(2):
         actor = Actor(
-            env_builder,
-            encoder_builder,
-            decoder_builder,
-            server,
-            GAMMA,
-            STEP_NUM,
-            ACTOR_UPLOAD_INTERVAL,
-            DOWNLOAD_INTERVAL,
-            SIZE_MIN,
-            SIZE_MAX,
-            D_MODEL,
-            D_KEY,
-            N_HEAD,
-            DEPTH,
-            LEARNING_RATE,
-            WEIGHT_BALANCER,
-            SEARCH_NUM
+            env_builder=env_builder,
+            encoder_builder=encoder_builder,
+            decoder_builder=decoder_builder,
+            server=server,
+            gamma=GAMMA,
+            upload_interval=ACTOR_UPLOAD_INTERVAL,
+            download_interval=DOWNLOAD_INTERVAL,
+            size_min=SIZE_MIN,
+            size_max=SIZE_MAX,
+            search_num=SEARCH_NUM
         )
         p = Process(target=actor.start)
         actor_process_list.append(p)

@@ -10,9 +10,9 @@ class Learner:
         server,
         batch_size=512,
         gamma=0.999,
-        learning_rate=1e-10,
-        synchronize_freq=10,
-        upload_freq=50,
+        learning_rate=1e-3,
+        synchronize_interval=10,
+        upload_interval=50,
         beta_q_first=1,
         beta_q_last=0.1,
         beta_a_first=0,
@@ -30,8 +30,8 @@ class Learner:
         self.batch_size = batch_size
         self.gamma = gamma
         learning_rate = learning_rate
-        self.synchronize_freq = synchronize_freq
-        self.upload_freq = upload_freq
+        self.synchronize_interval = synchronize_interval
+        self.upload_interval = upload_interval
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         self.huber = tf.keras.losses.Huber()
@@ -71,9 +71,9 @@ class Learner:
                 if self.step % 100:
                     self.log_metrics(metrics)
 
-                if self.step % self.synchronize_freq == 0:
+                if self.step % self.synchronize_interval == 0:
                     self.synchronize()
-                if self.step % self.upload_freq == 0:
+                if self.step % self.upload_interval == 0:
                     self.upload()
 
     def train(self):
