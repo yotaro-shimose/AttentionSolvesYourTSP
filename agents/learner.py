@@ -8,6 +8,7 @@ class Learner:
         encoder_builder,
         decoder_builder,
         server,
+        logger_builder=None,
         batch_size=512,
         gamma=0.999,
         learning_rate=1e-3,
@@ -17,16 +18,13 @@ class Learner:
         beta_q_last=0.1,
         beta_a_first=0,
         beta_a_last=0.045,
-        annealing_step=int(1e5),
-        d_model=128,
-        d_key=16,
-        n_head=8,
-        depth=2,
+        annealing_step=int(1e4),
         weight_balancer=0.12,
     ):
         self.encoder_builder = encoder_builder
         self.decoder_builder = decoder_builder
         self.server = server
+        self.logger_builder = logger_builder
         self.batch_size = batch_size
         self.gamma = gamma
         learning_rate = learning_rate
@@ -35,10 +33,7 @@ class Learner:
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         self.huber = tf.keras.losses.Huber()
-        self.d_model = d_model
-        self.d_key = d_key
-        self.n_head = n_head
-        self.depth = depth
+
         self.weight_balancer = weight_balancer
 
         # annealing configuration
@@ -52,14 +47,13 @@ class Learner:
         self.beta_a = self.beta_a_first
 
     def start(self):
-        self.encoder = self.encoder_builder(self.d_model, self.d_key,
-                                            self.n_head, self.depth, self.weight_balancer)
-        self.decoder = self.decoder_builder(self.d_model, self.d_key, self.n_head,
-                                            self.weight_balancer)
-        self.encoder_target = self.encoder_builder(self.d_model, self.d_key,
-                                                   self.n_head, self.depth, self.weight_balancer)
-        self.decoder_target = self.decoder_builder(self.d_model, self.d_key, self.n_head,
-                                                   self.weight_balancer)
+        self.encoder = self.encoder_builder()
+        self.decoder = self.decoder_builder()
+        self.encoder_target = self.encoder_builder()
+        self.decoder_target = self.decoder_builder()
+
+        self.logger = self.logger_builder() if self.logger_builder else None
+
         self.step = 0
         while True:
             metrics = self.train()
@@ -83,14 +77,14 @@ class Learner:
         if sample is None:
             time.sleep(1)
             return
-        graph = sample["graph"]
-        traj = sample["traj"]
-        action = sample["act"]
-        reward = sample["rew"]
-        next_graph = sample["next_graph"]
-        next_traj = sample["next_traj"]
-        done = sample["done"]
-        Q = sample["Q"]
+        graph = tf.constant(sample["graph"])
+        traj = tf.constant(sample["traj"])
+        action = tf.constant(sample["act"])
+        reward = tf.constant(sample["rew"])
+        next_graph = tf.constant(sample["next_graph"])
+        next_traj = tf.constant(sample["next_traj"])
+        done = tf.constant(sample["done"])
+        Q = tf.constant(sample["Q"])
 
         # Gradient Step
         loss = self.train_on_batch(
@@ -104,7 +98,7 @@ class Learner:
             Q
         )
 
-        metrics = {"step": self.step, "loss": loss}
+        metrics = {"loss": loss.numpy()}
 
         return metrics
 
@@ -174,7 +168,9 @@ class Learner:
         if new_beta_q > self.beta_q_last:
             self.beta_q = new_beta_q
         if new_beta_a < self.beta_a_last:
-            self.beta_a = new_beta_a
+            # debug
+            # self.beta_a = new_beta_a
+            pass
 
     def synchronize(self):
         self.encoder_target.set_weights(self.encoder.get_weights())
@@ -184,6 +180,8 @@ class Learner:
         self.server.upload((self.encoder.get_weights(),
                             self.decoder.get_weights()))
 
-    # TODO implement tensorboard
     def log_metrics(self, metrics):
-        print(f"train_step: {metrics['step']}  loss: {metrics['loss']}")
+        if self.logger:
+            self.logger.log(metrics, self.step)
+        else:
+            print(f"train_step: {self.step}  loss: {metrics['loss']}")
