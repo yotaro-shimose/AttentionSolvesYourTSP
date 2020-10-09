@@ -2,6 +2,23 @@ import tensorflow as tf
 import time
 
 
+MASK_VALUE = -1
+
+
+# compute mask for trajectory with shape(batch_size, node_size)
+def create_mask(trajectory):
+    def _create_mask(trajectory):
+        tf_range = tf.range(tf.size(trajectory))
+        return tf.map_fn(lambda x: tf.size(tf.where(trajectory == x))
+                         != 0, tf_range, fn_output_signature=tf.bool)
+    return tf.map_fn(_create_mask, trajectory, fn_output_signature=tf.bool)
+
+
+def masked_argmax(tensor, mask):
+    min = tf.math.reduce_min(tensor)
+    return tf.argmax(tf.where(mask, min, tensor), axis=1, output_type=tf.int32)
+
+
 class Learner:
     def __init__(
         self,
@@ -102,7 +119,7 @@ class Learner:
 
         return metrics
 
-    # @tf.function
+    @tf.function
     def train_on_batch(
         self,
         graph,
@@ -115,8 +132,9 @@ class Learner:
         Q_mcts
     ):
         # Qターゲットを計算
-        next_action = tf.argmax(self.network(
-            [next_graph, next_trajectory]), axis=1, output_type=tf.int32)
+        next_mask = create_mask(next_trajectory)
+        next_Q_list = self.network([next_graph, next_trajectory])
+        next_action = masked_argmax(next_Q_list, next_mask)
         indice = tf.stack(
             [tf.range(next_action.shape[0]), next_action], axis=1)
         next_Q = tf.reshape(tf.gather_nd(self.network_target(
