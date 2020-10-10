@@ -38,7 +38,7 @@ SIZE_MIN = 14
 SIZE_MAX = 15
 
 # TensorBoard用ログディレクトリ
-LOG_DIRECTORY = "./log/"
+LOG_DIRECTORY = "./logs/"
 
 
 def env_builder():

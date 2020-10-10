@@ -3,6 +3,8 @@ import time
 
 
 MASK_VALUE = -1
+# value to mask before softmax operation.
+INFINITE_VALUE = 1e+9  # see https://www.tensorflow.org/tutorials/text/transformer?hl=ja
 
 
 # compute mask for trajectory with shape(batch_size, node_size)
@@ -104,7 +106,7 @@ class Learner:
         Q = tf.constant(sample["Q"])
 
         # Gradient Step
-        loss = self.train_on_batch(
+        td_loss, amortized_loss = self.train_on_batch(
             graph,
             traj,
             action,
@@ -115,7 +117,8 @@ class Learner:
             Q
         )
 
-        metrics = {"loss": loss.numpy()}
+        metrics = {"td_loss": td_loss.numpy(
+        ), "amortized_loss": amortized_loss.numpy()}
 
         return metrics
 
@@ -143,14 +146,22 @@ class Learner:
             ((tf.cast(done, tf.float32) - 1) * (-1))
 
         # TD Loss と Amortized Loss を計算
+        # Q target計算用のindice
         indice = tf.stack([tf.range(action.shape[0]),
                            tf.squeeze(action, axis=1)], axis=1)
-        mcts_policy = tf.nn.softmax(Q_mcts)
+
+        # Amortized Loss用のmask
+        mask = create_mask(trajectory)
+        mask = tf.cast(mask, tf.float32) * -INFINITE_VALUE
+
+        mcts_policy = tf.nn.softmax(Q_mcts + mask)
+
         with tf.GradientTape() as tape:
             Q_list = self.network([graph, trajectory])
             Q = tf.gather_nd(Q_list, indice)
             td_loss = self.huber(Q, target)
 
+            Q_list += mask
             amortized_loss = tf.math.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
                 mcts_policy, Q_list))
             total_loss = self.beta_q * td_loss + self.beta_a * amortized_loss
@@ -159,7 +170,7 @@ class Learner:
                 zip(gradient, self.trainable_variables()))
 
         # Return Loss
-        return total_loss
+        return td_loss, amortized_loss
 
     def network(self, inputs):
         graph = inputs[0]
@@ -186,9 +197,7 @@ class Learner:
         if new_beta_q > self.beta_q_last:
             self.beta_q = new_beta_q
         if new_beta_a < self.beta_a_last:
-            # debug
-            # self.beta_a = new_beta_a
-            pass
+            self.beta_a = new_beta_a
 
     def synchronize(self):
         self.encoder_target.set_weights(self.encoder.get_weights())

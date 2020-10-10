@@ -68,7 +68,8 @@ class MCTS:
             total_reward = reward
         else:
             total_reward = reward + self.gumma * self.play_game(env)
-        self.Q[trajectory][next_action] = (
-            (self.N[trajectory][next_action] - 1) * self.Q[trajectory][next_action] + total_reward)/self.N[trajectory][next_action]
+        self.Q[trajectory][next_action] = ((self.N[trajectory][next_action] - 1) *
+                                           self.Q[trajectory][next_action] + total_reward) /\
+            self.N[trajectory][next_action]
 
         return total_reward
