@@ -54,7 +54,7 @@ class MCTS:
         u_array = C_PUCT * \
             np.sqrt(np.log(sum(self.N[trajectory]))/(self.N[trajectory]))
         next_action = np.argmax(
-            self.Q[trajectory] + u_array + trajectory.mask())
+            self.Q[trajectory] + u_array)
 
         # 次の行動をとる
         next_state, reward, done = env.step(next_action)
@@ -68,7 +68,8 @@ class MCTS:
             total_reward = reward
         else:
             total_reward = reward + self.gumma * self.play_game(env)
-        self.Q[trajectory][next_action] = (
-            (self.N[trajectory][next_action] - 1) * self.Q[trajectory][next_action] + total_reward)/self.N[trajectory][next_action]
+        self.Q[trajectory][next_action] = ((self.N[trajectory][next_action] - 1) *
+                                           self.Q[trajectory][next_action] + total_reward) /\
+            self.N[trajectory][next_action]
 
         return total_reward

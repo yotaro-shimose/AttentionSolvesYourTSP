@@ -47,7 +47,7 @@ class Server(Process):
         if self.buffer.get_stored_size() < self.min_storage:
             print(
                 f"stored sample {self.buffer.get_stored_size()} is smaller than mininum storage\
-                     size {self.min_storage}. Returnning None")
+                     size {self.min_storage}. Returning None")
             return None
         else:
             return self.buffer.sample(size)

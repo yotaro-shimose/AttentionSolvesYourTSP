@@ -23,6 +23,9 @@ class State:
         init_list = np.where(self.trajectory.numpy() == INITIAL_NUMBER)[0]
         if len(init_list) != 0:
             self.trajectory[init_list[0]] = int(node)
+            # 存在チェック
+            if sum(self.trajectory.numpy() == int(node)) != 1:
+                raise Exception("既に選択した場所です")
         return self.check_last_action(init_list)
 
     def total_cost(self):

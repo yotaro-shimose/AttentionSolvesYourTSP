@@ -1,16 +1,9 @@
-import time
 import random
-import tensorflow as tf
 import numpy as np
 from copy import deepcopy
-from scipy import stats
-from tensorflow.python.ops.gen_array_ops import quantize_and_dequantize
-
-from gat.environment.env import Env
-from gat.model.encoder import Encoder
-from gat.model.decoder import Decoder
 from mcts.mcts import MCTS
-from server.server import Server
+import os
+import time
 
 
 class Actor():
@@ -20,80 +13,84 @@ class Actor():
         encoder_builder,
         decoder_builder,
         server,
+        logger_builder=None,
         gamma=0.999,
-        step_num=10,
         upload_interval=1000,
         download_interval=10,
         size_min=14,
         size_max=15,
-        d_model=128,
-        d_key=16,
-        n_head=8,
-        depth=2,
-        weight_balancer=0.12,
-        learning_rate=9.0e-5,
-        search_num=10
+        search_num=10,
+        eps_init=1.0,
+        eps_end=0.01,
+        annealing_step=int(1e4),
     ):
         self.env = env_builder()
         self.server = server
+        self.logger_builder = logger_builder
         self.gamma = gamma
-        self.step_num = step_num
         self.upload_interval = upload_interval
         self.download_interval = download_interval
         self.size_min = size_min
         self.size_max = size_max
-        self.d_model = d_model
-        self.d_key = d_key
-        self.n_head = n_head
-        self.depth = depth
-        self.weight_balancer = weight_balancer
-        self.learning_rate = learning_rate
         self.search_num = search_num
 
+        self.eps_init = eps_init
+        self.eps_end = eps_end
+        self.annealing_step = annealing_step
         self.encoder_builder = encoder_builder
         self.decoder_builder = decoder_builder
 
     def start(self):
+        pid = os.getpid()
+        np.random.seed(pid + int(time.time()))
 
-        self.encoder = self.encoder_builder(self.d_model, self.d_key,
-                                            self.n_head, self.depth, self.weight_balancer)
-        self.decoder = self.decoder_builder(self.d_model, self.d_key, self.n_head,
-                                            self.weight_balancer)
+        self.encoder = self.encoder_builder()
+        self.decoder = self.decoder_builder()
+        self.logger = self.logger_builder() if self.logger_builder else None
 
         def eps_greedy(Q, eps, env):
             rand = np.random.rand()
             if eps > rand:
                 return np.argmax(np.random.rand(len(Q)) + env.state.trajectory.mask())
             else:
-                return np.argmax(Q + env.state.trajectory.mask())
+                return np.argmax(Q)
 
         # データ初期化
-        eps = 0.1  # TODO epsはAnnealする
+        self.eps = self.eps_init
         return_list = []
 
-        upload_step = 0
-        download_step = 0
         print('start')
+
+        # ステップカウンタ
+        self.step_count = 0
+
+        # ログ用のエピソードカウンタ
+        self.episode_count = 0
+
         # この問題のゲームを解く(下を繰り返し)
         while True:
+            self.episode_count += 1
             # 今回の問題を決定する
             graph_size = random.randrange(self.size_min, self.size_max)
             self.env.reset(graph_size)
 
             mcts = MCTS(self.env, self.encoder, self.decoder, self.gamma)
 
-            # if download_step == self.download_interval:
-            #     download_step = 0
-            #     weight = self.server.download()
-            #     if weight:
-            #         encoder_weight, decoder_weight = weight
-            #         self.encoder.set_weights(encoder_weight)
-            #         self.decoder.set_weights(decoder_weight)
+            if self.episode_count % self.download_interval == 0:
+                weight = self.server.download()
+                if weight:
+                    encoder_weight, decoder_weight = weight
+                    self.encoder.set_weights(encoder_weight)
+                    self.decoder.set_weights(decoder_weight)
 
-            for _ in range(graph_size):
+            episode_reward = 0
+            done = False
 
-                if upload_step == self.upload_interval:
-                    upload_step = 0
+            while not done:
+                self.step_count += 1
+
+                if self.step_count % self.upload_interval == 0:
+                    print("server push")
                     self.server.add(return_list)
                     return_list = []
 
@@ -102,16 +99,32 @@ class Actor():
                 Q = mcts.search(search_env, self.search_num)
 
                 # ε-greedyによって次の行動を決める
-                next_action = eps_greedy(Q, eps, self.env)
+                next_action = eps_greedy(Q, self.eps, self.env)
 
                 # Envから次の行動を選択したことによって次のS,r,doneを受け取る
                 before_trajectory = deepcopy(self.env.state.trajectory)
                 next_state, reward, done = self.env.step(next_action)
                 after_trajectory = deepcopy(next_state.trajectory)
 
-                # listに追加する
-                return_list.append((self.env.state.graph, before_trajectory,
-                                    next_action, reward, next_state.graph, after_trajectory, done, Q))
-                upload_step += 1
+                # rewardを記録する
+                episode_reward += reward
 
-            download_step += 1
+                # listに追加する
+                return_list.append((self.env.state.graph, before_trajectory, next_action,
+                                    reward, next_state.graph, after_trajectory, done, Q))
+
+            # Logを出力する
+            if self.logger:
+                metrics = {
+                    "Episode Reward": episode_reward
+                }
+                self.logger.log(metrics, self.episode_count)
+
+            # epsをAnneal
+            self.anneal()
+
+    def anneal(self):
+        step = (self.eps_end - self.eps_init) / self.annealing_step
+        new_eps = self.eps + step
+        if new_eps > self.eps_end:
+            self.eps = new_eps

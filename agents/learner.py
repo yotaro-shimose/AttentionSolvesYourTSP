@@ -8,37 +8,32 @@ class Learner:
         encoder_builder,
         decoder_builder,
         server,
+        logger_builder=None,
         batch_size=512,
         gamma=0.999,
-        learning_rate=1e-10,
-        synchronize_freq=10,
-        upload_freq=50,
+        learning_rate=1e-3,
+        synchronize_interval=10,
+        upload_interval=50,
         beta_q_first=1,
         beta_q_last=0.1,
         beta_a_first=0,
         beta_a_last=0.045,
-        annealing_step=int(1e5),
-        d_model=128,
-        d_key=16,
-        n_head=8,
-        depth=2,
+        annealing_step=int(1e4),
         weight_balancer=0.12,
     ):
         self.encoder_builder = encoder_builder
         self.decoder_builder = decoder_builder
         self.server = server
+        self.logger_builder = logger_builder
         self.batch_size = batch_size
         self.gamma = gamma
         learning_rate = learning_rate
-        self.synchronize_freq = synchronize_freq
-        self.upload_freq = upload_freq
+        self.synchronize_interval = synchronize_interval
+        self.upload_interval = upload_interval
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         self.huber = tf.keras.losses.Huber()
-        self.d_model = d_model
-        self.d_key = d_key
-        self.n_head = n_head
-        self.depth = depth
+
         self.weight_balancer = weight_balancer
 
         # annealing configuration
@@ -52,14 +47,13 @@ class Learner:
         self.beta_a = self.beta_a_first
 
     def start(self):
-        self.encoder = self.encoder_builder(self.d_model, self.d_key,
-                                            self.n_head, self.depth, self.weight_balancer)
-        self.decoder = self.decoder_builder(self.d_model, self.d_key, self.n_head,
-                                            self.weight_balancer)
-        self.encoder_target = self.encoder_builder(self.d_model, self.d_key,
-                                                   self.n_head, self.depth, self.weight_balancer)
-        self.decoder_target = self.decoder_builder(self.d_model, self.d_key, self.n_head,
-                                                   self.weight_balancer)
+        self.encoder = self.encoder_builder()
+        self.decoder = self.decoder_builder()
+        self.encoder_target = self.encoder_builder()
+        self.decoder_target = self.decoder_builder()
+
+        self.logger = self.logger_builder() if self.logger_builder else None
+
         self.step = 0
         while True:
             metrics = self.train()
@@ -71,9 +65,9 @@ class Learner:
                 if self.step % 100:
                     self.log_metrics(metrics)
 
-                if self.step % self.synchronize_freq == 0:
+                if self.step % self.synchronize_interval == 0:
                     self.synchronize()
-                if self.step % self.upload_freq == 0:
+                if self.step % self.upload_interval == 0:
                     self.upload()
 
     def train(self):
@@ -83,17 +77,17 @@ class Learner:
         if sample is None:
             time.sleep(1)
             return
-        graph = sample["graph"]
-        traj = sample["traj"]
-        action = sample["act"]
-        reward = sample["rew"]
-        next_graph = sample["next_graph"]
-        next_traj = sample["next_traj"]
-        done = sample["done"]
-        Q = sample["Q"]
+        graph = tf.constant(sample["graph"])
+        traj = tf.constant(sample["traj"])
+        action = tf.constant(sample["act"])
+        reward = tf.constant(sample["rew"])
+        next_graph = tf.constant(sample["next_graph"])
+        next_traj = tf.constant(sample["next_traj"])
+        done = tf.constant(sample["done"])
+        Q = tf.constant(sample["Q"])
 
         # Gradient Step
-        loss = self.train_on_batch(
+        td_loss, amortized_loss = self.train_on_batch(
             graph,
             traj,
             action,
@@ -104,11 +98,12 @@ class Learner:
             Q
         )
 
-        metrics = {"step": self.step, "loss": loss}
+        metrics = {"td_loss": td_loss.numpy(
+        ), "amortized_loss": amortized_loss.numpy()}
 
         return metrics
 
-    # @tf.function
+    @tf.function
     def train_on_batch(
         self,
         graph,
@@ -121,8 +116,8 @@ class Learner:
         Q_mcts
     ):
         # Qターゲットを計算
-        next_action = tf.argmax(self.network(
-            [next_graph, next_trajectory]), axis=1, output_type=tf.int32)
+        next_Q_list = self.network([next_graph, next_trajectory])
+        next_action = tf.argmax(next_Q_list, axis=1, output_type=tf.int32)
         indice = tf.stack(
             [tf.range(next_action.shape[0]), next_action], axis=1)
         next_Q = tf.reshape(tf.gather_nd(self.network_target(
@@ -131,9 +126,12 @@ class Learner:
             ((tf.cast(done, tf.float32) - 1) * (-1))
 
         # TD Loss と Amortized Loss を計算
+        # Q target計算用のindice
         indice = tf.stack([tf.range(action.shape[0]),
                            tf.squeeze(action, axis=1)], axis=1)
+
         mcts_policy = tf.nn.softmax(Q_mcts)
+
         with tf.GradientTape() as tape:
             Q_list = self.network([graph, trajectory])
             Q = tf.gather_nd(Q_list, indice)
@@ -147,7 +145,7 @@ class Learner:
                 zip(gradient, self.trainable_variables()))
 
         # Return Loss
-        return total_loss
+        return td_loss, amortized_loss
 
     def network(self, inputs):
         graph = inputs[0]
@@ -166,8 +164,8 @@ class Learner:
 
     def anneal(self):
         q_step = (self.beta_q_last - self.beta_q_first) / self.annealing_step
-
         new_beta_q = self.beta_q + q_step
+
         a_step = (self.beta_a_last - self.beta_a_first) / self.annealing_step
         new_beta_a = self.beta_a + a_step
 
@@ -184,6 +182,8 @@ class Learner:
         self.server.upload((self.encoder.get_weights(),
                             self.decoder.get_weights()))
 
-    # TODO implement tensorboard
     def log_metrics(self, metrics):
-        print(f"train_step: {metrics['step']}  loss: {metrics['loss']}")
+        if self.logger:
+            self.logger.log(metrics, self.step)
+        else:
+            print(f"train_step: {self.step}  loss: {metrics['loss']}")

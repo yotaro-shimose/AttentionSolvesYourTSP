@@ -4,6 +4,8 @@ import numpy as np
 
 from gat.environment.state import State
 
+PENALTY_COST = -1000
+
 
 class Env:
     def __init__(self):
@@ -18,7 +20,11 @@ class Env:
         return state, totalcost, done
         '''
 
-        done = self.state.update(action)
+        try:
+            done = self.state.update(action)
+        except Exception as e:
+            print(e)
+            return self.state, PENALTY_COST, True
         if done:
             return self.state, -self.state.total_cost(), done
         return self.state, 0, done
