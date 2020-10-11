@@ -189,8 +189,8 @@ class Learner:
 
     def anneal(self):
         q_step = (self.beta_q_last - self.beta_q_first) / self.annealing_step
-
         new_beta_q = self.beta_q + q_step
+
         a_step = (self.beta_a_last - self.beta_a_first) / self.annealing_step
         new_beta_a = self.beta_a + a_step
 

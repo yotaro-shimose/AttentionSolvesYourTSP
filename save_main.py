@@ -10,6 +10,10 @@ from gat.model.encoder import Encoder
 from logger import Logger
 from server.server import Server
 
+# 学習収束目安
+ACTOR_ANNEALING_STEP = 5000
+LEARNER_ANNEALING_STEP = 5000
+
 # NNパラメータ
 D_MODEL = 128
 D_KEY = 16
@@ -95,6 +99,7 @@ if __name__ == "__main__":
         learning_rate=LEARNING_RATE,
         synchronize_interval=SYNCHRONIZE_INTERVAL,
         upload_interval=LEARNER_UPLOAD_INTERVAL,
+        annealing_step=LEARNER_ANNEALING_STEP
     )
     learner_process = Process(target=learner.start)
     learner_process.start()
@@ -112,7 +117,8 @@ if __name__ == "__main__":
             download_interval=DOWNLOAD_INTERVAL,
             size_min=SIZE_MIN,
             size_max=SIZE_MAX,
-            search_num=SEARCH_NUM
+            search_num=SEARCH_NUM,
+            annealing_step=ACTOR_ANNEALING_STEP
         )
         p = Process(target=actor.start)
         actor_process_list.append(p)

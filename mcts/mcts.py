@@ -48,7 +48,7 @@ class MCTS:
             self.Q[trajectory] = self.decoder([self.input, tf.constant(
                 [trajectory], dtype=tf.int32)]).numpy().squeeze()
             self.visited.append(trajectory)
-            return np.max(self.Q[trajectory])
+            return np.max(self.Q[trajectory] + trajectory.mask())
 
         # 次の選択を決める
         u_array = C_PUCT * \
