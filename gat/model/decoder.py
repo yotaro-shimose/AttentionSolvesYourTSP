@@ -41,9 +41,7 @@ class Decoder(tf.keras.models.Model):
         Q, K, mask = inputs
         divide_const = tf.sqrt(tf.cast(tf.constant(K.shape[-1]), tf.float32))
         QK = tf.matmul(Q, K, transpose_b=True)
-        shape = tf.shape(QK)
-        QK = tf.reshape(QK, (shape[1], shape[0], shape[-1]))
-
+        QK = tf.squeeze(QK, axis=1)
         return QK
 
     @tf.function

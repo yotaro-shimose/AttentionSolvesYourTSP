@@ -12,7 +12,7 @@ class State:
     def __init__(self, graph):
         self.graph = graph
         self.trajectory = np.full(
-            len(graph), INITIAL_NUMBER, dtype=np.int).view(Trajectory)
+            len(graph), INITIAL_NUMBER, dtype=np.int32).view(Trajectory)
 
         G = nx.Graph()
         for index in range(len(graph)):
@@ -22,7 +22,7 @@ class State:
     def update(self, node):
         init_list = np.where(self.trajectory.numpy() == INITIAL_NUMBER)[0]
         if len(init_list) != 0:
-            self.trajectory[init_list[0]] = node
+            self.trajectory[init_list[0]] = int(node)
         return self.check_last_action(init_list)
 
     def total_cost(self):
