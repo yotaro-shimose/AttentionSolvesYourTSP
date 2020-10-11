@@ -7,7 +7,7 @@ from agents.learner import Learner
 from gat.environment.env import Env
 from gat.model.decoder import Decoder
 from gat.model.encoder import Encoder
-from logger import Logger
+from logger import ConsoleLogger
 from server.server import Server
 
 # 学習収束目安
@@ -70,7 +70,7 @@ def decoder_builder(
 
 def logger_builder(logdir=LOG_DIRECTORY):
     # loggers are instantiated in each process for safety.
-    logger = Logger(logdir=logdir)
+    logger = ConsoleLogger(logdir=logdir)
     return logger
 
 
