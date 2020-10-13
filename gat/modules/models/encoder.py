@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from gat.model.residual import ResidualLayerNorm
-from gat.attention.multi_head_self_attention import MultiHeadSelfAttention
+from gat.modules.models.residual import ResidualLayerNorm
+from gat.modules.layers.multi_head_self_attention import MultiHeadSelfAttention
 import numpy as np
 
 

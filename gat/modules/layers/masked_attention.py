@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from gat.modules.functions import masked_softmax
 
 
 class MaskedAttention(tf.keras.layers.Layer):
@@ -45,15 +46,16 @@ class MaskedAttention(tf.keras.layers.Layer):
         )
 
     def masked_attention(self, Q, K, V, mask):
-        divide_const = tf.sqrt(tf.cast(tf.constant(K.shape[-1]), tf.float32))
-        QK = tf.matmul(Q, K, transpose_b=True)
-        shape = tf.shape(QK)
-        QK = tf.reshape(QK, (shape[1], shape[0], shape[-1]))
+        divide_const = tf.sqrt(tf.constant(K.shape[-1], dtype=tf.float32))
+        QK = tf.matmul(Q, K, transpose_b=True) / divide_const
+        # mask is tensor of shape (batch_size, n_nodes) by default.
+        # but it must be tensor of shape (batch_size, 1, n_nodes).
+        batch_size = Q.shape[0]
+        n_nodes = V.shape[1]
+        mask = tf.reshape(mask, (batch_size, 1, n_nodes))
+        weights = masked_softmax(QK, mask)
+        return tf.matmul(weights, V)
 
-        masked_QK = tf.reshape(tf.where(mask, tf.float32.min, QK), shape)
-
-        return tf.matmul(tf.nn.softmax(tf.divide(masked_QK, divide_const)), V)
-
-    def call(self, inputs, training=None):
+    def call(self, inputs):
         return self.masked_attention(tf.matmul(inputs[1], self.wq), tf.matmul(
             inputs[0], self.wk), tf.matmul(inputs[0], self.wv), inputs[2])

@@ -40,6 +40,6 @@ class SelfAttention(tf.keras.layers.Layer):
             trainable=True
         )
 
-    def call(self, x, training=None):
+    def call(self, x):
         return attention(tf.matmul(x, self.wq), tf.matmul(
             x, self.wk), tf.matmul(x, self.wv))

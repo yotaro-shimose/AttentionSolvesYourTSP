@@ -13,6 +13,12 @@ class ResidualBatchNorm(tf.keras.models.Model):
 
 
 class ResidualLayerNorm(tf.keras.models.Model):
+    """ResidualLayerNorm is a residual block with an arbitrary layer followed by layer normalization.
+    according to https://arxiv.org/pdf/2002.04745.pdf, transformer should have
+    layer norm inside the residual block, or the output of each layer explodes as it goes deeper.
+    and layer norm is prefered to batch norm in recent transformers' architectures.
+    """
+
     def __init__(self, layer):
         super().__init__()
         self.layer = layer

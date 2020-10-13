@@ -1,4 +1,5 @@
 import tensorflow as tf
+from gat.modules.functions import create_mask
 
 
 class Preprocessor(tf.keras.models.Model):
@@ -31,7 +32,8 @@ class Preprocessor(tf.keras.models.Model):
             v_last : learnable vector to replace h_0 when no node have been visited.
 
         Returns:
-            h_0: embedding vector representing node where agent visited at the beginning of the episode.
+            h_0: embedding vector representing node where agent visited at the beginning of
+            the episode.
         """
 
         H_v = tf.concat([H, tf.broadcast_to(v_first, tf.concat(
@@ -66,15 +68,7 @@ class Preprocessor(tf.keras.models.Model):
         value = tf.map_fn(_last, x)
         return tf.map_fn(lambda y: tf.cond(y == -1, lambda: x.shape[1], lambda: y), value)
 
-    # compute mask for trajectory with shape(batch_size, node_size)
-    def create_mask(self, trajectory):
-        def _create_mask(trajectory):
-            tf_range = tf.range(tf.size(trajectory))
-            return tf.map_fn(lambda x: tf.size(tf.where(trajectory == x))
-                             != 0, tf_range, fn_output_signature=tf.bool)
-        return tf.map_fn(_create_mask, trajectory, fn_output_signature=tf.bool)
-
-    def call(self, inputs, training=None):
+    def call(self, inputs):
         '''
         inputs === [H, trajectory]
         outputs === [H, h_c, mask]
@@ -91,7 +85,7 @@ class Preprocessor(tf.keras.models.Model):
         h_c = tf.expand_dims(tf.concat([h_g, first, last], axis=1), axis=1)
 
         # calculate mask
-        mask = self.create_mask(trajectory)
+        mask = create_mask(trajectory)
 
         # return created inputs for decoder.
         return [H, h_c, mask]

@@ -1,9 +1,9 @@
 import tensorflow as tf
-from gat.attention.attention import SelfAttention
 import numpy as np
+from gat.modules.layers.masked_attention import MaskedAttention
 
 
-class MultiHeadSelfAttention(tf.keras.layers.Layer):
+class MultiHeadMaskedAttention(tf.keras.layers.Layer):
     def __init__(self, d_model, d_key, n_heads, weight_balancer=0.01):
         super().__init__()
         if (d_model % n_heads) != 0:
@@ -11,7 +11,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         self.d_model = d_model
         self.d_key = d_key
         self.n_heads = n_heads
-        self.sat_list = [SelfAttention(int(d_model/n_heads), d_key, weight_balancer)
+        self.sat_list = [MaskedAttention(int(d_model/n_heads), d_key, weight_balancer)
                          for i in range(n_heads)]
         self.weight_balancer = weight_balancer
 
@@ -28,6 +28,6 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
             trainable=True
         ) for i in range(self.n_heads)]
 
-    def call(self, inputs, training=None):
+    def call(self, inputs):
         return tf.reduce_sum([tf.matmul(sat(inputs), wo) for sat, wo
                               in zip(self.sat_list, self.wo_list)], axis=0)

@@ -5,8 +5,8 @@ import numpy as np
 from agents.actor import Actor
 from agents.learner import Learner
 from gat.environment.env import Env
-from gat.model.decoder import Decoder
-from gat.model.encoder import Encoder
+from gat.modules.models.decoder import QDecoder
+from gat.modules.models.encoder import Encoder
 from logger import TFLogger
 from server.server import Server
 
@@ -24,7 +24,7 @@ LEARNING_RATE = 1.0e-3
 WEIGHT_BALANCER = 1
 
 # 学習アルゴリズムパラメータ
-NUM_ACTOR = 5
+NUM_ACTOR = 2
 EPOCH_NUM = 10000
 NUM_MCTS_SIMS = 300
 BATCH_SIZE = 512
@@ -65,7 +65,7 @@ def decoder_builder(
     n_heads=N_HEAD,
     weight_balancer=WEIGHT_BALANCER
 ):
-    return Decoder(d_model, d_key, n_heads, weight_balancer)
+    return QDecoder(d_model, d_key, n_heads, weight_balancer)
 
 
 def logger_builder(logdir=LOG_DIRECTORY):
