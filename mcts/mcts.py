@@ -4,7 +4,7 @@ from copy import deepcopy
 
 AVERAGE_CONST = 0
 STANDARD_DEVIDATION = 0.000001
-C_PUCT = 0.001
+C_PUCT = 1
 
 
 class MCTS:
@@ -22,15 +22,14 @@ class MCTS:
     def search(self, env, search_num):
 
         trajectory = deepcopy(env.state.trajectory)
+
+        # 初めてきたSの場合、Q,NをNNで初期化
         if trajectory not in self.visited:
-            # Nの初期化
-            self.N[trajectory] = np.ones(len(trajectory))
-            self.Q[trajectory] = self.decoder([self.input, tf.constant(
-                [trajectory], dtype=tf.int32)]).numpy().squeeze()
-            self.visited.append(trajectory)
+            self.initialize_node(trajectory)
+
         # 決められた回数ゲームを行う
         for _ in range(search_num):
-            self.play_game(env)
+            self.play_game(deepcopy(env))
 
         return self.Q[trajectory]
 
@@ -38,16 +37,12 @@ class MCTS:
         '''
             現在の状態から再帰的にアクションを選択し、一回ゲームを終了させる
         '''
-
         trajectory = deepcopy(env.state.trajectory)
 
-        # 初めてきたSの場合、QをNNで初期化
+        # 初めてきたSの場合、Q,NをNNで初期化
         if trajectory not in self.visited:
-            # Nの初期化
-            self.N[trajectory] = np.ones(len(trajectory))
-            self.Q[trajectory] = self.decoder([self.input, tf.constant(
-                [trajectory], dtype=tf.int32)]).numpy().squeeze()
-            self.visited.append(trajectory)
+            # 初見のSのQ,NNを初期化しvisitedリストに追加
+            self.initialize_node(trajectory)
             return np.max(self.Q[trajectory] + trajectory.mask())
 
         # 次の選択を決める
@@ -73,3 +68,11 @@ class MCTS:
             self.N[trajectory][next_action]
 
         return total_reward
+
+    def initialize_node(self, trajectory):
+        # N, Qの初期化
+        self.N[trajectory] = np.ones(len(trajectory))
+        self.Q[trajectory] = self.decoder([self.input, tf.constant(
+            [trajectory], dtype=tf.int32)]).numpy().squeeze()
+        # visitedリストにSを追加
+        self.visited.append(trajectory)

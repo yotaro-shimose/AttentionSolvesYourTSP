@@ -2,9 +2,26 @@ import tensorflow as tf
 import time
 
 
-MASK_VALUE = -1
 # value to mask before softmax operation.
-INFINITE_VALUE = 1e+9  # see https://www.tensorflow.org/tutorials/text/transformer?hl=ja
+
+
+def masked_cross_entropy_from_Q(Q, Q_target, mask):
+    p_target = masked_softmax(Q_target, mask)
+    p = masked_softmax(Q, mask)
+    return -tf.math.reduce_mean(tf.keras.layers.dot([p_target, masked_log(p, mask)], axes=1))
+
+
+def masked_softmax(tensor, mask):
+    tensor = tensor
+    exps = tf.math.exp(tensor) * (1 - tf.cast(mask, tf.float32))
+    softmax = exps / tf.math.reduce_sum(exps, 1, keepdims=True)
+    return softmax
+
+
+def masked_log(tensor, mask):
+    float_mask = tf.cast(mask, tf.float32)
+    log = tf.math.log((1 - float_mask) * tensor + float_mask * 1)
+    return log
 
 
 # compute mask for trajectory with shape(batch_size, node_size)
@@ -36,7 +53,7 @@ class Learner:
         beta_q_first=1,
         beta_q_last=0.1,
         beta_a_first=0,
-        beta_a_last=0.045,
+        beta_a_last=0.45,
         annealing_step=int(1e4),
         weight_balancer=0.12,
     ):
@@ -152,18 +169,15 @@ class Learner:
 
         # Amortized Loss用のmask
         mask = create_mask(trajectory)
-        mask = tf.cast(mask, tf.float32) * -INFINITE_VALUE
-
-        mcts_policy = tf.nn.softmax(Q_mcts + mask)
 
         with tf.GradientTape() as tape:
+            # Calculate TDError
             Q_list = self.network([graph, trajectory])
             Q = tf.gather_nd(Q_list, indice)
             td_loss = self.huber(Q, target)
 
-            Q_list += mask
-            amortized_loss = tf.math.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-                mcts_policy, Q_list))
+            # Calculate masked cross entropy
+            amortized_loss = masked_cross_entropy_from_Q(Q_list, Q_mcts, mask)
             total_loss = self.beta_q * td_loss + self.beta_a * amortized_loss
             gradient = tape.gradient(total_loss, self.trainable_variables())
             self.optimizer.apply_gradients(

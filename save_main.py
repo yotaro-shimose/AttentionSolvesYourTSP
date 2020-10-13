@@ -7,7 +7,7 @@ from agents.learner import Learner
 from gat.environment.env import Env
 from gat.model.decoder import Decoder
 from gat.model.encoder import Encoder
-from logger import ConsoleLogger
+from logger import TFLogger
 from server.server import Server
 
 # 学習収束目安
@@ -29,7 +29,7 @@ EPOCH_NUM = 10000
 NUM_MCTS_SIMS = 300
 BATCH_SIZE = 512
 GAMMA = 0.99999
-SEARCH_NUM = 10
+SEARCH_NUM = 20
 ACTOR_UPLOAD_INTERVAL = 10
 DOWNLOAD_INTERVAL = 10
 BUFFER_SIZE = 20000
@@ -70,7 +70,7 @@ def decoder_builder(
 
 def logger_builder(logdir=LOG_DIRECTORY):
     # loggers are instantiated in each process for safety.
-    logger = ConsoleLogger(logdir=logdir)
+    logger = TFLogger(logdir=logdir)
     return logger
 
 
