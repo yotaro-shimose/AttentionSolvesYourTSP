@@ -53,7 +53,7 @@ class Learner:
         beta_q_first=1,
         beta_q_last=0.1,
         beta_a_first=0,
-        beta_a_last=0.45,
+        beta_a_last=0.10,
         annealing_step=int(1e4),
         weight_balancer=0.12,
     ):
