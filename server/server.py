@@ -7,9 +7,9 @@ class Server(Process):
         super().__init__()
 
         self.queue = Queue()
+        self.size = size
         self.client_pipe, self.server_pipe = Pipe()
         self.env_dict = env_dict
-        self.buffer = CPPRB(size, env_dict=env_dict)
         self.parameter = None
         self.min_storage = min_storage
 
@@ -17,6 +17,7 @@ class Server(Process):
         self.lock = Lock()
 
     def run(self):
+        self.buffer = CPPRB(self.size, env_dict=self.env_dict)
         while True:
             cmd, *args = self.queue.get()
             if cmd == "add":

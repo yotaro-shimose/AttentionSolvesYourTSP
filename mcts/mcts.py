@@ -4,7 +4,7 @@ from copy import deepcopy
 
 AVERAGE_CONST = 0
 STANDARD_DEVIDATION = 0.000001
-C_PUCT = 1
+C_PUCT = 0.1
 
 
 class MCTS:
