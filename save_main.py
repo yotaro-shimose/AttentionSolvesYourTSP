@@ -1,5 +1,6 @@
+import gpu_setting
 from multiprocessing import Process
-
+import multiprocessing
 import numpy as np
 
 from agents.actor import Actor
@@ -10,6 +11,7 @@ from gat.modules.models.encoder import Encoder
 from logger import TFLogger
 from server.server import Server
 
+
 # 学習収束目安
 ACTOR_ANNEALING_STEP = 5000
 LEARNER_ANNEALING_STEP = 5000
@@ -18,7 +20,7 @@ LEARNER_ANNEALING_STEP = 5000
 D_MODEL = 128
 D_KEY = 16
 N_HEAD = 8
-DEPTH = 4
+DEPTH = 3
 TH_RANGE = 10
 LEARNING_RATE = 1.0e-3
 WEIGHT_BALANCER = 1
@@ -75,6 +77,8 @@ def logger_builder(logdir=LOG_DIRECTORY):
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn', force=True)
+
     env_dict = {
         "graph": {"shape": (14, 2), "dtype": np.float32},
         "traj": {"shape": (14, ), "dtype": np.int32},
@@ -87,7 +91,6 @@ if __name__ == "__main__":
     }
     server = Server(
         size=BUFFER_SIZE, env_dict=env_dict)
-    server.start()
 
     learner = Learner(
         encoder_builder=encoder_builder,
@@ -123,6 +126,9 @@ if __name__ == "__main__":
         p = Process(target=actor.start)
         actor_process_list.append(p)
         p.start()
+
+    # server process must be started finally
+    server.start()
 
     for actor_process in actor_process_list:
         actor_process.join()
