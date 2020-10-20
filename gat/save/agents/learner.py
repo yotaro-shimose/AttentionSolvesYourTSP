@@ -18,7 +18,7 @@ class Learner:
         beta_q_first=1,
         beta_q_last=0.1,
         beta_a_first=0,
-        beta_a_last=0.10,
+        beta_a_last=0.01,
         annealing_step=int(1e4),
         weight_balancer=0.12,
     ):
@@ -190,5 +190,3 @@ class Learner:
     def log_metrics(self, metrics):
         if self.logger:
             self.logger.log(metrics, self.step)
-        else:
-            print(f"train_step: {self.step}  loss: {metrics['loss']}")
