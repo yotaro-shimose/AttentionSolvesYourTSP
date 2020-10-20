@@ -1,11 +1,14 @@
 # pycache
 __pycache__
 
+# pytest
+.pytest_cache
+
 # temp file
 temp*.py
 
 # vscode
-.vscode/*
+.vscode/
 
 # tensorboard
 *.v2

@@ -124,8 +124,9 @@ class Learner:
             [tf.range(next_action.shape[0]), next_action], axis=1)
         next_Q = tf.reshape(tf.gather_nd(self.network_target(
             [next_graph, next_trajectory]), indice), (-1, 1))
-        target = reward + self.gamma * next_Q * \
-            ((tf.cast(done, tf.float32) - 1) * (-1))
+        target = reward + self.gamma * \
+            tf.math.multiply_no_nan(
+                next_Q, (tf.cast(done, tf.float32) - 1) * (-1))
 
         # TD Loss と Amortized Loss を計算
         # Q target計算用のindice

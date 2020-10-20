@@ -1,4 +1,4 @@
-from server.server import Server
+from gat.save.server.server import Server
 import numpy as np
 
 

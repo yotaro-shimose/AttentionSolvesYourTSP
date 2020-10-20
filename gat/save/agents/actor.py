@@ -1,7 +1,7 @@
-import random
 import numpy as np
 from copy import deepcopy
-from mcts.mcts import MCTS
+
+from gat.save.mcts.mcts import MCTS
 import os
 import time
 
@@ -17,8 +17,7 @@ class Actor():
         gamma=0.999,
         upload_interval=1000,
         download_interval=10,
-        size_min=14,
-        size_max=15,
+        n_nodes=14,
         search_num=10,
         eps_init=1.0,
         eps_end=0.01,
@@ -30,8 +29,7 @@ class Actor():
         self.gamma = gamma
         self.upload_interval = upload_interval
         self.download_interval = download_interval
-        self.size_min = size_min
-        self.size_max = size_max
+        self.n_nodes = n_nodes
         self.search_num = search_num
 
         self.eps_init = eps_init
@@ -71,8 +69,7 @@ class Actor():
         while True:
             self.episode_count += 1
             # 今回の問題を決定する
-            graph_size = random.randrange(self.size_min, self.size_max)
-            self.env.reset(graph_size)
+            self.env.reset(self.n_nodes)
 
             mcts = MCTS(self.env, self.encoder, self.decoder, self.gamma)
 

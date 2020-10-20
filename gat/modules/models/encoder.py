@@ -6,16 +6,15 @@ import numpy as np
 
 
 class Encoder(tf.keras.models.Model):
-    def __init__(self, d_model, d_key, n_heads, n, weight_balancer=0.01):
+    def __init__(self, d_model, d_key, n_heads, depth, weight_balancer=0.01):
         super().__init__()
         self.weight_balancer = weight_balancer
         self.d_model = d_model
         self.attention_block_list = [ResidualLayerNorm(
-            MultiHeadSelfAttention(d_model, d_key, n_heads, weight_balancer)) for _ in range(n)]
+            MultiHeadSelfAttention(d_model, d_key, n_heads, weight_balancer)) for _ in range(depth)]
         self.dence_block_list = [ResidualLayerNorm(
-            tf.keras.layers.Dense(d_model, activation='relu')) for _ in range(n)]
+            tf.keras.layers.Dense(d_model, activation='relu')) for _ in range(depth)]
         self.final_layer_norm = tf.keras.layers.LayerNormalization()
-        self.n = n
 
     def build(self, input_shape):
 
