@@ -5,9 +5,8 @@ from copy import deepcopy
 from scipy import stats
 
 from gat.environment.env import Env
-from gat.model.encoder import Encoder
-from gat.model.decoder import Decoder
-from mcts.mcts import Mcts
+from gat.modules.models.encoder import Encoder
+from gat.modules.models.decoder import Decoder
 import pathlib
 import time
 
@@ -33,10 +32,10 @@ SIZE_MIN = 30
 SIZE_MAX = 31
 
 # セーブディレクトリ
-# SAVE_DIRECTORY_ENCODER = str(
-#     pathlib.Path.cwd().joinpath("weights").joinpath("encoder"))
-# SAVE_DIRECTORY_DECODER = str(
-#     pathlib.Path.cwd().joinpath("weights").joinpath("decoder"))
+SAVE_DIRECTORY_ENCODER = str(
+    pathlib.Path.cwd().joinpath("weights").joinpath("encoder"))
+SAVE_DIRECTORY_DECODER = str(
+    pathlib.Path.cwd().joinpath("weights").joinpath("decoder"))
 
 # LOAD_DIRECTORY_ENCODER = str(
 #     pathlib.Path.cwd().joinpath("weights").joinpath("encoder"))
@@ -70,21 +69,6 @@ def play_game(encoder, decoder, graph_list, graph_size, env_list, action_list, p
             else:
                 next_action = action_list[np.argmax(next_action_probability)]
             env.step(next_action)
-
-
-def executeEpisode(env, encoder, decoder):
-    examples = []
-    state = env.state
-    mcts = Mcts(env, encoder, decoder)
-
-    while True:
-        for _ in range(NUM_MCTS_SIMS):
-            mcts.search(env)
-        examples.append([state, mcts.pi(state), None])
-        next_action = random.choice(len(mcts.pi(state)), p=mcts.pi(state))
-        state, totalcost, done = env.step(state, next_action)
-        if done:
-            return [[exam[0], exam[1], totalcost] for exam in examples]
 
 
 if __name__ == "__main__":
