@@ -20,8 +20,8 @@ class Env:
 
         done = self.state.update(action)
         if done:
-            return self.state, -self.state.total_cost(), done
-        return self.state, 0, done
+            return deepcopy((self.state, -self.state.total_cost(), done))
+        return deepcopy((self.state, 0, done))
 
     def reset(self, graph_size):
         '''

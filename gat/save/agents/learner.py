@@ -18,7 +18,7 @@ class Learner:
         beta_q_first=1,
         beta_q_last=0.1,
         beta_a_first=0,
-        beta_a_last=0.01,
+        beta_a_last=0.045,
         annealing_step=int(1e4),
         weight_balancer=0.12,
     ):
@@ -104,7 +104,7 @@ class Learner:
 
         return metrics
 
-    @tf.function
+    # @tf.function
     def train_on_batch(
         self,
         graph,
@@ -127,6 +127,7 @@ class Learner:
         target = reward + self.gamma * \
             tf.math.multiply_no_nan(
                 next_Q, (tf.cast(done, tf.float32) - 1) * (-1))
+        assert tf.size(tf.where(tf.math.is_nan(target))) == 0
 
         # TD Loss と Amortized Loss を計算
         # Q target計算用のindice
@@ -139,6 +140,7 @@ class Learner:
         with tf.GradientTape() as tape:
             # Calculate TDError
             Q_list = self.network([graph, trajectory])
+            assert tf.size(tf.where(tf.math.is_nan(Q_list))) == 0
             Q = tf.gather_nd(Q_list, indice)
             td_loss = self.huber(Q, target)
 

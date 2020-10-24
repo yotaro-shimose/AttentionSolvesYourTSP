@@ -6,7 +6,7 @@ from scipy import stats
 
 from gat.environment.env import Env
 from gat.modules.models.encoder import Encoder
-from gat.modules.models.decoder import Decoder
+from gat.modules.models.decoder import PolicyDecoder
 import pathlib
 import time
 
@@ -74,12 +74,12 @@ def play_game(encoder, decoder, graph_list, graph_size, env_list, action_list, p
 if __name__ == "__main__":
     # 学習用
     encoder = Encoder(D_MODEL, D_KEY, N_HEAD, DEPTH, WEIGHT_BALANCER)
-    decoder = Decoder(D_MODEL, D_KEY, N_HEAD, TH_RANGE, WEIGHT_BALANCER)
+    decoder = PolicyDecoder(D_MODEL, D_KEY, N_HEAD, TH_RANGE, WEIGHT_BALANCER)
     optimizer = tf.optimizers.Adam(lr=LEARNING_RATE)
 
     # 最強格納用
     base_encoder = Encoder(D_MODEL, D_KEY, N_HEAD, DEPTH)
-    base_decoder = Decoder(D_MODEL, D_KEY, N_HEAD, TH_RANGE)
+    base_decoder = PolicyDecoder(D_MODEL, D_KEY, N_HEAD, TH_RANGE)
 
     # if LOAD_DIRECTORY_ENCODER is not None and LOAD_DIRECTORY_DECODER is not None:
     #     encoder.load_weights(LOAD_DIRECTORY_ENCODER)

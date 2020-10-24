@@ -67,7 +67,7 @@ class Trajectory(np.ndarray):
         return hash(str(self))
 
     def mask(self):
-        return np.array([-np.inf if i in self.numpy() else 0.0
+        return np.array([True if i in self.numpy() else False
                          for i in range(len(self))], dtype=np.float)
 
     def __str__(self):
