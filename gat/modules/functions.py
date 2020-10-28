@@ -21,12 +21,14 @@ def masked_log(tensor, mask):
 
 
 # compute mask for trajectory with shape(batch_size, node_size)
+@tf.function
 def create_mask(trajectory):
     def _create_mask(trajectory):
         tf_range = tf.range(tf.size(trajectory))
-        return tf.map_fn(lambda x: tf.size(tf.where(trajectory == x))
-                         != 0, tf_range, fn_output_signature=tf.bool)
-    return tf.map_fn(_create_mask, trajectory, fn_output_signature=tf.bool)
+        return tf.vectorized_map(lambda x: tf.math.reduce_sum(tf.cast((trajectory == x), tf.int32))
+                                 > 0, tf_range)
+
+    return tf.vectorized_map(_create_mask, trajectory)
 
 
 def masked_argmax(tensor, mask):

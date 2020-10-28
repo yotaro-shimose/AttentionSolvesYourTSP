@@ -86,14 +86,14 @@ class PolicyDecoder(tf.keras.models.Model):
                                   initializer=initializer,
                                   trainable=True)
 
-    def calc_policy(self, Q, K, V, mask):
+    def calc_policy(self, Q, K, mask):
         divide_const = tf.sqrt(tf.constant(K.shape[-1], dtype=tf.float32))
         QK = tf.matmul(Q, K, transpose_b=True) / divide_const
         # mask is tensor of shape (batch_size, n_nodes) by default.
         # but it must be tensor of shape (batch_size, 1, n_nodes).
         batch_size = Q.shape[0]
-        n_nodes = V.shape[1]
         n_query = Q.shape[1]  # always one in ordinary use
+        n_nodes = K.shape[1]
         mask = tf.reshape(mask, (batch_size, n_query, n_nodes))
         policy = masked_softmax(
             self.th_range * tf.keras.activations.tanh(QK), mask)

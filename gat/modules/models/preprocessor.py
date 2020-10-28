@@ -39,7 +39,7 @@ class Preprocessor(tf.keras.models.Model):
         H_v = tf.concat([H, tf.broadcast_to(v_first, tf.concat(
             [tf.shape(H)[0:1], v_first.get_shape()], axis=0))], axis=1)
         f_index = trajectory[:, 0]
-        f_index = tf.map_fn(lambda y: tf.cond(
+        f_index = tf.vectorized_map(lambda y: tf.cond(
             y == -1, lambda: H_v.shape[1] - 1, lambda: y), f_index)
         indice = tf.stack([tf.range(tf.size(f_index)), f_index], axis=1)
         return tf.gather_nd(H_v, indice)
