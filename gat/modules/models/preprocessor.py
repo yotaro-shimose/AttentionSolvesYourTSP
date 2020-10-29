@@ -23,6 +23,7 @@ class Preprocessor(tf.keras.models.Model):
                                       initializer=initializer,
                                       trainable=True)
 
+    @tf.function
     def get_first(self, H, trajectory, v_first):
         """compute vector agent visited at the beginning of the episode.
 

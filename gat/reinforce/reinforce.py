@@ -24,7 +24,7 @@ class Reinforce:
         n_heads=8,
         depth=3,
         th_range=10,
-        weight_balancer=1,
+        weight_balancer=0.12,
         significance=0.05,
         logger=None,
     ):
@@ -155,7 +155,7 @@ class Reinforce:
         Hs = encoder(graphs)
         for _ in range(self.graph_size):
             # Get trajectories
-            trajectories = np.stack(
+            trajectories = tf.stack(
                 [env.state.trajectory for env in envs], axis=0)
 
             # Get policy

@@ -65,7 +65,7 @@ class PolicyDecoder(tf.keras.models.Model):
         self.attention = MultiHeadMaskedAttention(
             d_model, d_key, n_heads, weight_balancer)
         self.th_range = th_range
-        self.preprocesser = Preprocessor(d_model, d_key, n_heads)
+        self.preprocessor = Preprocessor(d_model, d_key, n_heads)
         self.weight_balancer = weight_balancer
 
         self.residual_layer_norm = ResidualLayerNorm(
@@ -107,7 +107,7 @@ class PolicyDecoder(tf.keras.models.Model):
         inputs ===[H (BATCH_SIZE, n_nodes, d_model), trajectory(BATCH_SIZE, n_nodes)]
         outputs === (BATCH_SIZE, n_nodes)
         '''
-        inputs = self.preprocesser(inputs)
-        output = self.attention(inputs)
-        return self.calc_policy(tf.matmul(output, self.wq), tf.matmul(
-            inputs[0], self.wk), inputs[2])
+        H, h_c, mask = self.preprocessor(inputs)
+        query = self.attention([H, h_c, mask])
+        return self.calc_policy(tf.matmul(query, self.wq), tf.matmul(
+            H, self.wk), mask)
