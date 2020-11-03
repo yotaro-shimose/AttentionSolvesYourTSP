@@ -1,6 +1,8 @@
 import gpublock
 import tensorflow as tf
 from gat.reinforce.reinforce import Reinforce
+import datetime
+import pathlib
 
 
 class ConsoleLogger:
@@ -24,9 +26,11 @@ class TFLogger:
 
 if __name__ == '__main__':
     # Debugger V2
-    tf.debugging.experimental.enable_dump_debug_info(
-        dump_root="./logs/",
-        tensor_debug_mode="FULL_HEALTH",
-        circular_buffer_size=-1)
-    reinforce = Reinforce(logger=TFLogger("./logs/"))
+    # tf.debugging.experimental.enable_dump_debug_info(
+    #     dump_root="./logs/",
+    #     tensor_debug_mode="FULL_HEALTH",
+    #     circular_buffer_size=-1)
+    date = datetime.datetime.today().strftime("%Y%m%d%H%M%S/")
+    path = str(pathlib.Path("./logs/") / date)
+    reinforce = Reinforce(logger=TFLogger(path))
     reinforce.start()

@@ -6,6 +6,7 @@ from scipy import stats
 from gat.environment.env import Env
 from gat.modules.models.encoder import Encoder
 from gat.modules.models.decoder import PolicyDecoder
+from gat.modules.functions import clipped_log
 import time
 
 
@@ -118,7 +119,7 @@ class Reinforce:
                 self.decoder.trainable_variables
             # Get policy gradient to apply to our network
             policy_gradient = tape.gradient((base_rewards - online_rewards) *
-                                            tf.math.log(likelihood), trainable_variables)
+                                            clipped_log(likelihood), trainable_variables)
 
             # Apply gradient
             self.optimizer.apply_gradients(

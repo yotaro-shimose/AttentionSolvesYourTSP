@@ -34,3 +34,8 @@ def create_mask(trajectory):
 def masked_argmax(tensor, mask):
     min = tf.math.reduce_min(tensor)
     return tf.argmax(tf.where(mask, min, tensor), axis=1, output_type=tf.int32)
+
+
+def clipped_log(tensor):
+    tensor = tf.clip_by_value(tensor, 1e-12, 1.0)
+    return tf.math.log(tensor)
