@@ -19,11 +19,11 @@ class Reinforce:
         n_parallels=5,
         n_nodes_min=14,
         n_nodes_max=14,
-        learning_rate=1e-3,
+        learning_rate=9e-5,
         d_model=128,
         d_key=16,
         n_heads=8,
-        depth=3,
+        depth=2,
         th_range=10,
         weight_balancer=0.12,
         significance=0.05,
@@ -94,13 +94,6 @@ class Reinforce:
         base_envs = [deepcopy(env) for env in self.online_envs]
 
         with tf.GradientTape() as tape:
-            # Execute an episode for each online environment
-            online_rewards, online_policies = self.play_game(
-                envs=self.online_envs,
-                encoder=self.encoder,
-                decoder=self.decoder,
-                greedy=False
-            )
             # Greedy rollout
             base_rewards, _ = self.play_game(
                 envs=base_envs,
@@ -108,6 +101,15 @@ class Reinforce:
                 decoder=self.base_decoder,
                 greedy=True
             )
+
+            # Execute an episode for each online environment
+            online_rewards, online_policies = self.play_game(
+                envs=self.online_envs,
+                encoder=self.encoder,
+                decoder=self.decoder,
+                greedy=False
+            )
+
             # ** Learn from experience ** #
             # Get likelihood
             trajectories = tf.stack(
@@ -117,16 +119,20 @@ class Reinforce:
 
             trainable_variables = self.encoder.trainable_variables + \
                 self.decoder.trainable_variables
+            excess_cost = tf.stop_gradient((base_rewards - online_rewards))
             # Get policy gradient to apply to our network
-            policy_gradient = tape.gradient((base_rewards - online_rewards) *
-                                            clipped_log(likelihood), trainable_variables)
+            policy_gradient = tape.gradient(tf.reduce_mean(
+                excess_cost * clipped_log(likelihood)), trainable_variables)
 
             # Apply gradient
             self.optimizer.apply_gradients(
                 zip(policy_gradient, trainable_variables))
         # metrics
         metrics = {
-            "average_reward": tf.reduce_mean(online_rewards)
+            "average_reward": tf.reduce_mean(online_rewards),
+            "cost against baseline": tf.reduce_mean(excess_cost),
+            "base_rewards": tf.reduce_mean(base_rewards),
+            "online_rewards": tf.reduce_mean(online_rewards)
         }
         return metrics
 
@@ -213,11 +219,11 @@ class Reinforce:
     def validate(self):
 
         online_envs = [Env() for _ in range(self.n_validations)]
-        graph_size = (self.n_nodes_min + self.n_nodes_max) // 2
+        self.graph_size = (self.n_nodes_min + self.n_nodes_max) // 2
         # ** Initialization ** #
 
         # Initialize state
-        [env.reset(graph_size) for env in online_envs]
+        [env.reset(self.graph_size) for env in online_envs]
         # Copy env list for baseline.
         base_envs = deepcopy(online_envs)
         online_rewards, _ = self.play_game(
