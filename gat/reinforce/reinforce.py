@@ -70,10 +70,10 @@ class Reinforce:
     def start(self):
         for epoch in range(self.n_epochs):
             for iteration in range(self.n_iterations):
-                start = time.time()
+                # start = time.time()
                 metrics = self.train_on_episode()
-                end = time.time()
-                print(f"経過時間: {end - start}(s)")
+                # end = time.time()
+                # print(f"経過時間: {end - start}(s)")
                 step = epoch * self.n_iterations + iteration
                 self.logger.log(metrics, step)
             if self.validate():
@@ -129,7 +129,6 @@ class Reinforce:
                 zip(policy_gradient, trainable_variables))
         # metrics
         metrics = {
-            "average_reward": tf.reduce_mean(online_rewards),
             "cost against baseline": tf.reduce_mean(excess_cost),
             "base_rewards": tf.reduce_mean(base_rewards),
             "online_rewards": tf.reduce_mean(online_rewards)
@@ -151,7 +150,6 @@ class Reinforce:
         """
 
         # ** Initialization ** #
-
         # List to store policies used in this episode.
         policy_series = []
         # List to store rewards in this episode for both online agent and baseline
@@ -171,7 +169,7 @@ class Reinforce:
             policy_series.append(policies)
 
             # Define action selection strategy (sampling or greedy)
-            get_action = np.argmax if greedy else self.sample_action
+            get_action = tf.argmax if greedy else self.sample_action
             # Get actions for online agent
             actions = [get_action(
                 policy) for policy in policies.numpy()]
@@ -190,8 +188,7 @@ class Reinforce:
         Args:
             policy (np.ndarray): Rank one ndarray action distribution.
         """
-        size = 1
-        return np.random.choice(range(len(policy)), size, p=policy)
+        return np.random.choice(range(len(policy)), p=policy)
 
     def calculate_likelihood(self, policy_series, trajectories):
         """calculate_likelihood calculates likelihood to have this trajectory
