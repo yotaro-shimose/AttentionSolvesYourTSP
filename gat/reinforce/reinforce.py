@@ -2,12 +2,12 @@ import tensorflow as tf
 import numpy as np
 from copy import deepcopy
 from scipy import stats
+import pathlib
 
 from gat.environment.env import Env
 from gat.modules.models.encoder import Encoder
 from gat.modules.models.decoder import PolicyDecoder
 from gat.modules.functions import clipped_log
-import time
 
 
 class Reinforce:
@@ -28,6 +28,8 @@ class Reinforce:
         weight_balancer=0.12,
         significance=0.05,
         logger=None,
+        save_dir="./models/",
+        load_dir=None,
     ):
         self.n_epochs = n_epochs
         self.n_iterations = n_iterations
@@ -35,6 +37,8 @@ class Reinforce:
         self.online_envs = [Env() for _ in range(n_parallels)]
         self.n_nodes_min = n_nodes_min
         self.n_nodes_max = n_nodes_max
+        self.save_dir = save_dir
+
         self.encoder = Encoder(
             d_model=d_model,
             d_key=d_key,
@@ -63,6 +67,8 @@ class Reinforce:
             th_range,
             weight_balancer
         )
+        if load_dir:
+            self.load(load_dir)
         self.optimizer = tf.keras.optimizers.Adam(learning_rate)
         self.significance = significance
         self.logger = logger
@@ -78,6 +84,8 @@ class Reinforce:
                 self.logger.log(metrics, step)
             if self.validate():
                 print("Validation passed")
+                if self.save_dir:
+                    self.save(self.save_dir)
                 self.synchronize(self.encoder, self.decoder,
                                  self.base_encoder, self.base_decoder)
 
@@ -235,7 +243,29 @@ class Reinforce:
             np.mean(online_rewards) > np.mean(base_rewards)
 
     def save(self, path):
-        raise NotImplementedError
+        encoder_path = pathlib.Path(path) / "encoder"
+        decoder_path = pathlib.Path(path) / "decoder"
+        self.encoder.save_weights(encoder_path)
+        self.decoder.save_weights(decoder_path)
 
     def load(self, path):
-        raise NotImplementedError
+        encoder_path = pathlib.Path(path) / "encoder"
+        decoder_path = pathlib.Path(path) / "decoder"
+        self.encoder.load_weights(encoder_path)
+        self.decoder.load_weights(decoder_path)
+        self.base_encoder.load_weights(encoder_path)
+        self.base_decoder.load_weights(decoder_path)
+
+    def demo(self, graph_size=None):
+        env = Env()
+        if not graph_size:
+            graph_size = np.random.randint(
+                self.n_nodes_min, self.n_nodes_max + 1)
+        state = env.reset(graph_size)
+        H = self.encoder(tf.stack([state.graph], 0))
+        done = False
+        while(not done):
+            action = tf.argmax(self.decoder(
+                [H, tf.stack([state.trajectory], axis=0)]), axis=1).numpy()[0]
+            state, _, done = env.step(action)
+        env.render()

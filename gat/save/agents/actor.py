@@ -7,6 +7,9 @@ import tensorflow as tf
 from gat.save.mcts.mcts import MCTS
 
 
+INFINITY = 1e+10
+
+
 class Actor():
     def __init__(
         self,
@@ -51,9 +54,10 @@ class Actor():
             def eps_greedy(Q, eps, env):
                 rand = np.random.rand()
                 if eps > rand:
-                    return np.argmax(np.random.rand(len(Q)) + env.state.trajectory.mask())
+                    return np.argmax(np.random.rand(len(Q)) + env.state.trajectory.mask() *
+                                     (-INFINITY))
                 else:
-                    return np.argmax(Q + env.state.trajectory.mask())
+                    return np.argmax(Q + env.state.trajectory.mask() * (-INFINITY))
 
             # データ初期化
             self.eps = self.eps_init

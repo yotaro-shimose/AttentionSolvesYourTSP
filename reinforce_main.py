@@ -31,6 +31,6 @@ if __name__ == '__main__':
     #     tensor_debug_mode="FULL_HEALTH",
     #     circular_buffer_size=-1)
     date = datetime.datetime.today().strftime("%Y%m%d%H%M%S/")
-    path = str(pathlib.Path("./logs/") / date)
-    reinforce = Reinforce(logger=TFLogger(path))
+    log_path = str(pathlib.Path("./logs/") / "REINFORCE" / date)
+    reinforce = Reinforce(logger=TFLogger(log_path))
     reinforce.start()

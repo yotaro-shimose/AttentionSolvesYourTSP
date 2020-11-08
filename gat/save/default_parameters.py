@@ -1,3 +1,9 @@
+import datetime
+import pathlib
+
+
+date = datetime.datetime.today().strftime("%Y%m%d%H%M%S/")
+path = str(pathlib.Path("./logs") / "SAVE" / date)
 default_parameters = {
     # 学習収束目安
     'actor_annealing_step': 5000,
@@ -12,7 +18,7 @@ default_parameters = {
 
     # 学習アルゴリズムパラメータ
     'n_actor': 2,
-    'learning_rate': 1.0e-3,
+    'learning_rate': 1.0e-4,
     'batch_size': 512,
     'gamma': 0.99999,
     'search_num': 20,
@@ -27,6 +33,6 @@ default_parameters = {
     'n_nodes': 14,
 
     # TensorBoard用ログディレクトリ
-    'logdir': "./logs/",
+    'logdir': path,
 
 }

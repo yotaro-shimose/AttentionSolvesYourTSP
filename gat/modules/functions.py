@@ -16,7 +16,7 @@ def masked_softmax(tensor, mask):
 
 def masked_log(tensor, mask):
     float_mask = tf.cast(mask, tf.float32)
-    log = tf.math.log((1 - float_mask) * tensor + float_mask * 1)
+    log = clipped_log((1 - float_mask) * tensor + float_mask * 1)
     return log
 
 
