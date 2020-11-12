@@ -6,8 +6,8 @@ from gat.environment.state import State
 
 
 class Env:
-    def __init__(self, graph_size):
-        self.state = self.__create_state(graph_size)
+    def __init__(self):
+        self.state = None
 
     def __create_state(self, graph_size):
         graph = np.random.uniform(size=(graph_size, 2))
@@ -20,8 +20,8 @@ class Env:
 
         done = self.state.update(action)
         if done:
-            return self.state, -self.state.total_cost(), done
-        return self.state, 0, done
+            return deepcopy((self.state, -self.state.total_cost(), done))
+        return deepcopy((self.state, 0, done))
 
     def reset(self, graph_size):
         '''
